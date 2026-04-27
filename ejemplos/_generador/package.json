@@ -1,0 +1,13 @@
+{
+  "name": "doc-generator",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "build": "node generate.js"
+  },
+  "dependencies": {
+    "mupdf": "^1.27.0",
+    "sharp": "^0.33.5"
+  }
+}

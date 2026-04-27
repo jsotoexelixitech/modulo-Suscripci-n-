@@ -1,0 +1,130 @@
+/**
+ * Document service: validacion + dispatcher de OCR.
+ *
+ * El proveedor de OCR se elige por la variable de entorno OCR_PROVIDER:
+ *   - "mock"   -> datos simulados (default, util para tests sin red).
+ *   - "gemini" -> Google Gemini 2.5 Flash-Lite via @google/genai.
+ *
+ * Si el proveedor real falla, se hace fallback transparente al mock para
+ * no romper el flujo del usuario, pero el error queda registrado.
+ */
+
+const VALID_DOC_TYPES = ['cedula', 'licencia', 'certificado', 'rif'];
+
+/**
+ * Validacion basica del archivo (tamano y mime).
+ */
+function validateDocument(file, _docType) {
+  const minSizeBytes = 2048;
+
+  if (file.size < minSizeBytes) {
+    return {
+      valid: false,
+      message: 'El archivo parece estar vacio o corrupto. Sube un documento valido.',
+    };
+  }
+
+  const allowedTypes = [
+    'image/jpeg',
+    'image/png',
+    'image/jpg',
+    'image/webp',
+    'image/svg+xml',
+    'application/pdf',
+  ];
+
+  if (!allowedTypes.includes(file.mimetype)) {
+    return {
+      valid: false,
+      message: 'Formato de archivo no soportado. Solo JPG, PNG, WebP, SVG o PDF.',
+    };
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Datos simulados consistentes para el modo mock o como fallback.
+ */
+function simulateOcr(docType) {
+  const mock = {
+    cedula: {
+      nombre: 'Maria',
+      apellido: 'Fernandez',
+      identificacion: '18456329',
+      tipoDoc: 'V',
+      fechaNacimiento: '1990-04-15',
+      sexo: 'Femenino',
+    },
+    licencia: {
+      numeroLicencia: 'LIC-0234567',
+      categoria: '5ta',
+      vencimiento: '2027-06-30',
+    },
+    certificado: {
+      placa: 'AE123KT',
+      marca: 'Toyota',
+      modelo: 'Corolla',
+      año: '2020',
+      serial: 'VIN20TOYCO2020001',
+      color: 'Plateado',
+    },
+    rif: {
+      rif: 'J-40123456-7',
+      razonSocial: null,
+    },
+  };
+  return mock[docType] || {};
+}
+
+/**
+ * Dispatcher principal de OCR.
+ *
+ * @param {object} file       Objeto file de multer (con path, mimetype, size).
+ * @param {string} docType    cedula | licencia | certificado | rif.
+ * @returns {Promise<{provider:string, fields:object, meta?:object, error?:string}>}
+ */
+async function runOcr(file, docType) {
+  if (!VALID_DOC_TYPES.includes(docType)) {
+    throw new Error(`Tipo de documento invalido: ${docType}`);
+  }
+
+  const provider = (process.env.OCR_PROVIDER || 'mock').toLowerCase();
+
+  if (provider === 'gemini') {
+    try {
+      const gemini = require('./ocrProviders/geminiProvider');
+      const result = await gemini.extract(file.path, file.mimetype, docType);
+
+      const startedMsg = `[OCR] gemini OK (${result.meta.elapsedMs} ms) docType=${docType} model=${result.meta.model}`;
+      console.log(startedMsg);
+
+      return {
+        provider: 'gemini',
+        fields: result.fields,
+        meta: result.meta,
+      };
+    } catch (err) {
+      console.error(`[OCR] gemini fallo, usando fallback mock. docType=${docType} error=${err.message}`);
+      return {
+        provider: 'mock-fallback',
+        fields: simulateOcr(docType),
+        error: err.message,
+      };
+    }
+  }
+
+  // Default: mock con un pequeno delay para simular procesamiento.
+  await new Promise((resolve) => setTimeout(resolve, 300 + Math.random() * 700));
+  return {
+    provider: 'mock',
+    fields: simulateOcr(docType),
+  };
+}
+
+module.exports = {
+  validateDocument,
+  simulateOcr,
+  runOcr,
+  VALID_DOC_TYPES,
+};
