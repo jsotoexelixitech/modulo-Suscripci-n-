@@ -97,7 +97,9 @@ if $WITH_TUNNEL; then
 
   # Cloudflare en background, captura la URL
   CF_LOG="$ROOT/logs/cloudflare.log"
-  cloudflared tunnel --url "http://localhost:$API_PORT" > "$CF_LOG" 2>&1 &
+  # El túnel apunta a Vite (WEB_PORT), no al API.
+  # Vite ya hace proxy de /api → Express internamente.
+  cloudflared tunnel --url "http://localhost:$WEB_PORT" > "$CF_LOG" 2>&1 &
   CF_PID=$!
 
   # Espera a que aparezca la URL del tunnel
