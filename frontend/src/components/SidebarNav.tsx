@@ -1,6 +1,6 @@
 ﻿import {
   Check, FileText, UserCog, ShieldCheck, CreditCard,
-  User, Layers, Wallet, Lock, Shield, Car,
+  User, Layers, Wallet, Lock, Shield, Car, Loader2,
 } from 'lucide-react';
 import { useWizardStore } from '../store/wizardStore';
 
@@ -13,10 +13,31 @@ const STEPS = [
 ];
 
 export function SidebarNav() {
-  const { step, tomador, vehicle, selectedPlan, paymentMethod } = useWizardStore();
+  const { step, tomador, vehicle, selectedPlan, paymentMethod, quote, quoteState } = useWizardStore();
 
   const name = [tomador.nombre, tomador.apellido].filter(Boolean).join(' ');
   const carDescriptor = [vehicle.marca, vehicle.modelo].filter(Boolean).join(' ');
+
+  // Precio real de La Mundial cuando esté disponible, fallback al catálogo
+  const hasRealQuote = quoteState === 'ready' && !!quote;
+  const isQuoteLoading = quoteState === 'loading';
+
+  const precioDisplay = (() => {
+    if (isQuoteLoading) return null;
+    if (hasRealQuote && quote) {
+      const monthly = quote.mprimaext / 12;
+      return `$${monthly.toFixed(2)} / mes`;
+    }
+    return selectedPlan?.price ?? null;
+  })();
+
+  const precioAnualDisplay = hasRealQuote && quote
+    ? `$${quote.mprimaext.toFixed(2)} / año`
+    : null;
+
+  const bsDisplay = hasRealQuote && quote
+    ? `Bs ${(quote.mprima / 12).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / mes`
+    : null;
   const methodLabels: Record<string, string> = {
     card: 'Tarjeta',
     transfer: 'Transferencia',
@@ -28,24 +49,13 @@ export function SidebarNav() {
   return (
     <aside className="sidebar-gradient text-slate-200 hidden lg:flex flex-col lg:w-[300px] lg:min-h-screen lg:fixed lg:left-0 lg:top-0 lg:bottom-0 lg:overflow-y-auto p-6 lg:p-7 z-40 border-r border-white/[0.06]">
       {/* Brand */}
-      <div className="flex items-center gap-3 mb-8">
-        <div className="relative w-11 h-11 rounded-2xl bg-white grid place-items-center shadow-[0_8px_24px_rgba(15,26,90,0.45)] ring-1 ring-white/20 overflow-hidden">
-          <img
-            src="/logo-isotipo-transparente.png"
-            alt="La Mundial de Seguros"
-            className="w-8 h-8 object-contain"
-            draggable={false}
-          />
-          <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-400 ring-2 ring-[#091133] animate-live-dot" />
-        </div>
-        <div className="min-w-0">
-          <h1 className="font-wordmark text-white text-[1.15rem] leading-tight">
-            La Mundial
-            <span className="block text-[0.7rem] font-sans font-medium tracking-[0.18em] uppercase text-fuchsia-300/90 mt-0.5">
-              de Seguros
-            </span>
-          </h1>
-        </div>
+      <div className="flex items-center justify-center mb-8 px-2">
+        <img
+          src="/logo-lamundial-sidebar.png"
+          alt="La Mundial de Seguros"
+          className="w-full max-w-[210px] object-contain"
+          draggable={false}
+        />
       </div>
 
       {/* Live status pill */}
@@ -148,23 +158,41 @@ export function SidebarNav() {
                 value={vehicle.placa ? `${vehicle.placa}${carDescriptor ? ` · ${carDescriptor}` : ''}` : carDescriptor || '—'}
               />
               <SummaryRow icon={<Shield size={11} />} label="Plan" value={selectedPlan?.name ?? '—'} />
-              <SummaryRow
-                icon={<ShieldCheck size={11} />}
-                label="Suma aseg."
-                value={
-                  selectedPlan
-                    ? `$${selectedPlan.sumaAsegurada.toLocaleString('en-US')}${
-                        selectedPlan.sumaAseguradaUnit ? ` ${selectedPlan.sumaAseguradaUnit}` : ''
-                      }`
-                    : '—'
-                }
-              />
-              <SummaryRow
-                icon={<CreditCard size={11} />}
-                label="Precio"
-                value={selectedPlan?.price ?? '—'}
-                highlight={!!selectedPlan}
-              />
+
+              {/* Prima mensual — real de La Mundial o spinner */}
+              <div className="flex items-center justify-between gap-3 py-1">
+                <div className="flex items-center gap-2 text-slate-400">
+                  <CreditCard size={11} />
+                  <span className="text-[0.72rem]">Prima / mes</span>
+                </div>
+                {isQuoteLoading ? (
+                  <span className="flex items-center gap-1 text-indigo-300">
+                    <Loader2 size={11} className="animate-spin" />
+                    <span className="text-[0.72rem] font-bold">Cotizando…</span>
+                  </span>
+                ) : precioDisplay ? (
+                  <span className="text-[0.78rem] font-bold text-indigo-300">{precioDisplay}</span>
+                ) : (
+                  <span className="text-[0.78rem] font-bold text-slate-500">—</span>
+                )}
+              </div>
+
+              {/* Prima anual — solo cuando hay quote real */}
+              {precioAnualDisplay && (
+                <div className="flex items-center justify-between gap-3 py-0.5 opacity-70">
+                  <span className="text-[0.68rem] text-slate-500 pl-5">Total anual</span>
+                  <span className="text-[0.72rem] font-semibold text-slate-400 tabular-nums">{precioAnualDisplay}</span>
+                </div>
+              )}
+
+              {/* Equivalente en Bs — solo cuando hay quote real */}
+              {bsDisplay && (
+                <div className="flex items-center justify-between gap-3 py-0.5 opacity-70">
+                  <span className="text-[0.68rem] text-slate-500 pl-5">En Bs</span>
+                  <span className="text-[0.72rem] font-semibold text-slate-400 tabular-nums">{bsDisplay}</span>
+                </div>
+              )}
+
               <SummaryRow
                 icon={<Wallet size={11} />}
                 label="Pago"

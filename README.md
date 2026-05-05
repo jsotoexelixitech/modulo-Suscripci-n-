@@ -12,8 +12,9 @@ Aplicacion web profesional para emision digital de polizas de **Responsabilidad 
 ![Zod](https://img.shields.io/badge/Zod-4-3068B7?style=for-the-badge&logo=zod&logoColor=white)
 ![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?style=for-the-badge&logo=nodedotjs&logoColor=white)
 ![Express](https://img.shields.io/badge/Express-4-000000?style=for-the-badge&logo=express&logoColor=white)
+![Sharp](https://img.shields.io/badge/Sharp-image%20pipeline-99CC00?style=for-the-badge&logo=sharp&logoColor=white)
+![Gemini](https://img.shields.io/badge/Gemini-2.5_Flash-8E75B2?style=for-the-badge&logo=google&logoColor=white)
 ![PM2](https://img.shields.io/badge/PM2-cluster-2B037A?style=for-the-badge&logo=pm2&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-optional-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 ![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207%2B-5391FE?style=for-the-badge&logo=powershell&logoColor=white)
 ![License](https://img.shields.io/badge/License-Propietario-red?style=for-the-badge)
 
@@ -25,12 +26,15 @@ Aplicacion web profesional para emision digital de polizas de **Responsabilidad 
 
 - [Resumen](#resumen)
 - [Stack tecnologico](#stack-tecnologico)
+- [Arquitectura](#arquitectura)
 - [Estructura del proyecto](#estructura-del-proyecto)
 - [Requisitos](#requisitos)
+- [Comando unico de desarrollo](#comando-unico-de-desarrollo)
 - [Instalacion paso a paso](#instalacion-paso-a-paso)
 - [Variables de entorno](#variables-de-entorno)
 - [Scripts de despliegue](#scripts-de-despliegue)
 - [Endpoints de la API](#endpoints-de-la-api)
+- [Integraciones externas](#integraciones-externas)
 - [Flujo funcional (5 pasos)](#flujo-funcional-5-pasos)
 - [Troubleshooting](#troubleshooting)
 - [Aviso legal](#aviso-legal)
@@ -39,9 +43,16 @@ Aplicacion web profesional para emision digital de polizas de **Responsabilidad 
 
 ## Resumen
 
-Producto digital de **La Mundial de Seguros** para suscribir polizas RCV. El cliente sube su cedula, certificado del vehiculo (RUST) y licencia; el motor de OCR pre-rellena el formulario; el usuario elige plan y metodo de pago; y el sistema emite la poliza con numero unico.
+Producto digital de **La Mundial de Seguros** para suscribir polizas RCV (Responsabilidad Civil de Vehiculos). El cliente sube su cedula y certificado del vehiculo (RUST); el motor de OCR pre-rellena el formulario; el usuario elige plan y metodo de pago; y el sistema emite la poliza con numero unico contra la API real de La Mundial.
 
-Esta documentacion describe el stack, la estructura, las variables de entorno y los scripts de PowerShell para automatizar el ciclo `setup -> dev -> deploy -> stop`.
+El proyecto integra ademas tres pasarelas externas:
+
+| Servicio | Proposito |
+|---|---|
+| **La Mundial de Seguros** | Cotizacion y emision real de polizas RCV (QA / produccion) |
+| **Banco Activo (Meritop)** | Verificacion automatica de Pago Movil |
+| **SyPago** | Debito directo bancario via OTP (clave de un solo uso) |
+| **Google Gemini** | OCR de documentos (cedula, RUST, licencia) |
 
 ## Stack tecnologico
 
@@ -53,61 +64,124 @@ Esta documentacion describe el stack, la estructura, las variables de entorno y 
 - **Zustand 5** para estado global (wizard + toasts)
 - **Axios** con progreso real de upload
 - **Zod** para validacion del lado cliente
+- **react-select** para combobox de bancos con busqueda
 - **Lucide React** + **canvas-confetti** para UI/UX
+- **Sonner** para sistema de notificaciones (toast)
 
 ### Backend
 
 - **Node.js 18+** (CommonJS)
 - **Express 4** para la API REST
-- **Multer** para uploads multipart/form-data (limite 10 MB)
+- **Multer** para uploads multipart/form-data (limite 25 MB)
+- **Sharp** para normalizacion HEIC/HEIF -> JPEG, rotacion EXIF, compresion
+- **Axios** como cliente HTTP para integraciones (La Mundial, Meritop, SyPago)
 - **CORS** configurable por env
 - **dotenv** para configuracion por entorno
-- OCR pluggable: `mock` (default), `openai`, `gemini`, `google-document-ai`
+- OCR pluggable: `mock` (default), `gemini` (Gemini 2.5 Flash-Lite recomendado), `openai`, `google-document-ai`
 
 ### Operaciones
 
 - **PM2** en modo `cluster` para alta disponibilidad
-- **Docker / Docker Compose** opcional (DB y cache para futuros features)
 - **Cloudflare Tunnel** opcional para exponer el dev/prod a Internet
 - **PowerShell 5.1+** (compatible con Windows 10/11 nativo y PS 7+)
+
+## Arquitectura
+
+```
+        +------------------+        +------------------+
+        |   Frontend Vite  |  HMR   |  Backend Express |
+        |  (puerto 5180)   |<------>|  (puerto 3001)   |
+        +--------+---------+        +---+----------+---+
+                 |                      |          |
+                 | Cloudflare           |          |
+                 | Tunnel (opcional)    |          |
+                 v                      v          v
+        +------------------+   +-------------+   +-------------+
+        |     Internet     |   |  La Mundial |   |   Meritop   |
+        +------------------+   |  (QA/PROD)  |   | (Banco Act.)|
+                               +-------------+   +-------------+
+                                      |                |
+                                      v                v
+                               +-------------+   +-------------+
+                               |   SyPago    |   |   Gemini    |
+                               | (Debito OTP)|   |    (OCR)    |
+                               +-------------+   +-------------+
+```
+
+**Patron**: Monolito modular con servicios desacoplados (`services/lamundial/`, `services/meritop/`, `services/sypago/`, `services/ocrProviders/`). Cada integracion vive en su carpeta y expone una sola API publica al resto del sistema. Esto permite **desactivar un proveedor con una variable de entorno** sin afectar el flujo principal.
+
+**Punto unico de servicio en produccion**: Express sirve tanto el API (`/api/*`) como el build estatico de Vite (`frontend/dist`) — no se necesita Nginx adicional.
 
 ## Estructura del proyecto
 
 ```
 Suscripcion-rcv/
 |
-|-- frontend/                  React + Vite + Tailwind
+|-- frontend/                    React + Vite + Tailwind
+|   |-- public/                  Logos, manifest, favicons, SVG demos
 |   |-- src/
-|   |   |-- features/          Feature-based: ocr, vehicle, plans, payment...
-|   |   |-- components/        UI atomica + componentes globales
-|   |   |-- store/             Zustand: wizardStore, toastStore
-|   |   |-- lib/               api.ts (Axios), planCatalog, utils
-|   |   `-- types/             Tipos compartidos
-|   |-- public/                Logos, manifest, favicons
-|   |-- vite.config.ts         Proxy /api y /files -> :3001
+|   |   |-- features/            Pasos del wizard
+|   |   |   |-- ocr/             Carga de documentos
+|   |   |   |-- emission/        Datos del cliente
+|   |   |   |-- vehicle/         Datos del vehiculo
+|   |   |   |-- plans/           Cotizacion + seleccion de plan
+|   |   |   `-- payment/         Pago + emision + exito
+|   |   |-- components/
+|   |   |   |-- SidebarNav.tsx     Sidebar con steps + resumen
+|   |   |   |-- TopProgressBar.tsx Barra de progreso superior
+|   |   |   |-- WelcomeSplash.tsx  Animacion de bienvenida
+|   |   |   |-- DocumentPreviewModal.tsx Modal para ver documentos
+|   |   |   |-- Toaster.tsx        Notificaciones globales
+|   |   |   `-- ui/                Primitivas: Button, Badge, FormField,
+|   |   |                          IdentityInput, BankSearchSelect, etc.
+|   |   |-- store/               Zustand: wizardStore, toastStore
+|   |   |-- lib/                 api.ts, money.ts, planCatalog.ts, utils.ts
+|   |   `-- types/               Tipos compartidos TypeScript
+|   |-- vite.config.ts           Proxy /api y /files -> :3001 (HMR Cloudflare)
 |   `-- package.json
 |
-|-- server/                    Express mini-server
+|-- server/                      API Express
+|   |-- scripts/                 Scripts de prueba de integraciones externas
+|   |   |-- test-lamundial-integration.js
+|   |   |-- test-mismatch-e2e.js
+|   |   |-- test-policy-unit.js
+|   |   `-- test-validator-unit.js
 |   |-- src/
-|   |   |-- routes/            /api/documents/upload, /api/policies/emit
-|   |   |-- services/          documentService (validacion + OCR)
-|   |   `-- index.js           Bootstrap (lee PORT y CORS desde .env)
-|   |-- uploads/               Documentos subidos (gitignored)
+|   |   |-- routes/
+|   |   |   `-- upload.js        TODOS los endpoints /api/*
+|   |   |-- services/
+|   |   |   |-- lamundial/       Cliente API La Mundial (cotizar, emitir, catalogos)
+|   |   |   |   |-- lamundialClient.js   HTTP client con retry y cache
+|   |   |   |   |-- policyService.js     Orquestacion quote + emit
+|   |   |   |   |-- policyMapper.js      Mapping wizard -> payload La Mundial
+|   |   |   |   |-- policyValidator.js   Validacion de payload pre-envio
+|   |   |   |   `-- catalogs.js          INMA: marcas, modelos, versiones
+|   |   |   |-- meritop/         Banco Activo - verificacion Pago Movil
+|   |   |   |   `-- meritopClient.js     Login JWT + verifymobilepayment
+|   |   |   |-- sypago/          SyPago - debito OTP
+|   |   |   |   `-- sypagoClient.js      requestOtp + confirmOtp + status
+|   |   |   |-- ocrProviders/    Proveedores OCR
+|   |   |   |   `-- geminiProvider.js    Google Gemini 2.5 Flash-Lite
+|   |   |   `-- documentService.js       Validacion + dispatch al provider
+|   |   `-- index.js             Bootstrap Express (PORT, CORS, rutas, static)
+|   |-- uploads/                 Documentos subidos temporalmente (gitignored)
 |   `-- package.json
 |
-|-- ejemplos/                  Generadores de assets y docs de prueba
+|-- ejemplos/documentos-prueba/  Documentos PNG para pruebas de OCR
+|-- logs/                        Logs PM2 (gitignored)
 |
-|-- .env                       Variables de entorno (gitignored)
-|-- .env.example               Plantilla documentada
-|-- ecosystem.config.js        Configuracion PM2 (cluster + frontend prod)
+|-- package.json                 Scripts unificados: dev | build | start | deploy
+|-- .env                         Secretos (gitignored — NO commitear)
+|-- .env.example                 Plantilla documentada con todos los valores
+|-- ecosystem.config.js          Configuracion PM2 para produccion (cluster)
 |
-|-- setup.ps1                  Verifica deps, instala, genera .env y secrets
-|-- start-dev.ps1              Lanza backend + frontend en ventanas separadas
-|-- stop.ps1                   Detiene todo limpiamente
-|-- deploy.ps1                 Build + PM2/Docker + health check
+|-- setup.ps1                    Primera instalacion: deps, .env, secrets
+|-- start-dev.ps1                Dev con ventanas separadas por servicio
+|-- stop.ps1                     Detiene todos los procesos
+|-- deploy.ps1                   Build + PM2 + health check
 |
-|-- LICENSE                    Aviso de propiedad intelectual
-`-- README.md
+|-- LICENSE                      Aviso de propiedad intelectual
+`-- README.md                    Este archivo
 ```
 
 ## Requisitos
@@ -117,15 +191,42 @@ Suscripcion-rcv/
 | Node.js | 18 LTS o superior | Si |
 | npm | 9 o superior | Si |
 | Git | cualquier reciente | Si |
-| PowerShell | 5.1 (preinstalado en Windows 10/11) o 7+ | Si |
+| PowerShell | 5.1 (preinstalado en Windows 10/11) o 7+ | Solo Windows |
 | PM2 | ultima | Solo para `deploy.ps1 -Mode pm2` |
-| Docker Desktop | ultima | Solo para `deploy.ps1 -Mode docker` |
+| Cloudflared | ultima | Solo si usas tunneles |
 
 Instalacion de PM2 (global):
 
 ```powershell
 npm install -g pm2
 ```
+
+## Comando unico de desarrollo
+
+Desde la raiz del proyecto (requiere haber ejecutado `setup.ps1` o `npm install:all` al menos una vez):
+
+```bash
+npm run dev
+```
+
+Este comando arranca en paralelo:
+- `API` — Express en `http://localhost:3001` (con nodemon, hot-reload)
+- `WEB` — Vite en `http://localhost:5180` (con HMR)
+
+Los logs de cada servicio se muestran con colores distintos en la misma terminal.
+
+### Otros comandos del root `package.json`
+
+| Comando | Proposito |
+|---|---|
+| `npm run dev` | Backend + Frontend en paralelo (modo desarrollo) |
+| `npm run build` | Compila el frontend para produccion |
+| `npm run start` | Arranca el backend en modo produccion (sirve frontend estatico) |
+| `npm run deploy` | `build` + `start` en una sola operacion |
+| `npm run install:all` | Instala dependencias de `server/` y `frontend/` |
+| `npm run lint` | Lint del frontend |
+
+---
 
 ## Instalacion paso a paso
 
@@ -152,13 +253,12 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 
 Este script:
 
-1. Verifica Node, npm, Git, Docker (opcional) y PM2 (opcional).
+1. Verifica Node, npm, Git, PM2 (opcional).
 2. Crea las carpetas `server/uploads/` y `logs/`.
 3. Copia `.env.example` -> `.env` si no existe.
 4. Genera **SESSION_SECRET** y **JWT_SECRET** seguros (Base64 URL-safe, 48 bytes).
 5. Instala dependencias en `server/` y `frontend/`.
-6. Levanta `docker compose` si encuentra `docker-compose.yml`.
-7. Imprime un resumen con lo configurado y lo que queda pendiente.
+6. Imprime un resumen con lo configurado y lo que queda pendiente (API keys de proveedores externos).
 
 Flags utiles:
 
@@ -169,21 +269,16 @@ Flags utiles:
 
 ### 4) Modo desarrollo
 
-```powershell
-.\start-dev.ps1
+**Recomendado**: comando unico desde la raiz:
+
+```bash
+npm run dev
 ```
 
-Abre dos ventanas de PowerShell separadas:
-
-- **RCV Backend (Express)** en `http://localhost:3001`
-- **RCV Frontend (Vite)** en `http://localhost:5173`
-
-Flags:
+**Alternativa Windows** (ventanas separadas):
 
 ```powershell
-.\start-dev.ps1 -NoFrontend    # solo backend
-.\start-dev.ps1 -NoBackend     # solo frontend
-.\start-dev.ps1 -Quiet         # corre en background con logs en logs\
+.\start-dev.ps1
 ```
 
 ### 5) Detener todo
@@ -191,25 +286,32 @@ Flags:
 ```powershell
 .\stop.ps1               # cierre limpio
 .\stop.ps1 -Force        # mata procesos sin esperar
-.\stop.ps1 -OnlyDev      # solo dev (puertos 3001 / 5173)
-.\stop.ps1 -OnlyProd     # solo PM2 / docker compose
 ```
 
 ### 6) Despliegue de produccion
 
+**Opcion A — comando unico (mas simple)**:
+
+```bash
+npm run deploy
+```
+
+Compila el frontend y arranca el backend que sirve tanto el API como los archivos estaticos en el puerto 3001.
+
+**Opcion B — PM2 cluster (recomendado en servidor)**:
+
 ```powershell
 .\deploy.ps1                 # default: PM2 cluster
-.\deploy.ps1 -Mode docker    # docker compose
 .\deploy.ps1 -Mode static    # solo node + build estatico
 .\deploy.ps1 -SkipBuild      # reusar dist/ existente
 ```
 
 El script:
 
-1. Valida `.env` (NODE_ENV, PORT, SESSION_SECRET, JWT_SECRET, CORS_ORIGINS).
+1. Valida `.env`.
 2. Instala dependencias con `npm ci` (respeta lockfile).
 3. Construye el frontend (`tsc -b && vite build`).
-4. Lanza con PM2 (cluster) usando `ecosystem.config.js`, o con Docker.
+4. Lanza con PM2 (cluster) usando `ecosystem.config.js`.
 5. Hace **health check** contra `/api/health` (15 reintentos).
 6. Imprime URLs y estado.
 
@@ -217,129 +319,156 @@ El script:
 
 Todas viven en el archivo **`.env`** de la raiz. La plantilla documentada esta en **`.env.example`**.
 
+### General y backend
+
 | Categoria | Variable | Default | Descripcion |
 |---|---|---|---|
 | General | `NODE_ENV` | `development` | `development` / `staging` / `production` |
-| General | `APP_NAME` | `RCV-LaMundial` | Nombre del producto |
 | API | `PORT` | `3001` | Puerto del backend |
 | API | `CORS_ORIGINS` | `http://localhost:5173,...` | Lista separada por comas |
-| API | `JSON_BODY_LIMIT` | `1mb` | Tamano max body JSON |
-| API | `UPLOAD_MAX_SIZE_MB` | `10` | Tamano max por archivo |
 | Secrets | `SESSION_SECRET` | (generado) | Auto-generado por setup.ps1 |
 | Secrets | `JWT_SECRET` | (generado) | Auto-generado por setup.ps1 |
-| Secrets | `JWT_EXPIRES_IN` | `12h` | TTL del JWT |
-| OCR | `OCR_PROVIDER` | `mock` | `mock` / `openai` / `gemini` / `google-document-ai` |
-| OCR | `OPENAI_API_KEY` | (vacio) | Solo si `OCR_PROVIDER=openai` |
-| OCR | `OPENAI_MODEL` | `gpt-4o-mini` | Modelo de OpenAI |
-| OCR | `GEMINI_API_KEY` | (vacio) | Solo si `OCR_PROVIDER=gemini` |
-| OCR | `GEMINI_MODEL` | `gemini-2.0-flash` | Modelo de Gemini |
-| DB | `DATABASE_URL` | (vacio) | Reservado para futuro |
-| Cache | `REDIS_URL` | (vacio) | Reservado para futuro |
-| Frontend | `VITE_API_URL` | (vacio) | URL publica del API en produccion |
-| Frontend | `VITE_APP_NAME` | `La Mundial de Seguros` | Branding |
-| Deploy | `PM2_INSTANCES` | `max` | Numero de procesos del cluster |
-| Deploy | `PUBLIC_WEB_PORT` | `4173` | Puerto del frontend en produccion |
+
+### OCR
+
+| Variable | Default | Descripcion |
+|---|---|---|
+| `OCR_PROVIDER` | `mock` | `mock` / `gemini` / `openai` / `google-document-ai` |
+| `GEMINI_API_KEY` | (vacio) | Solo si `OCR_PROVIDER=gemini` |
+| `GEMINI_MODEL` | `gemini-2.5-flash-lite` | Modelo recomendado |
+
+### La Mundial de Seguros (cotizacion + emision)
+
+| Variable | Default | Descripcion |
+|---|---|---|
+| `LAMUNDIAL_BASE_URL` | (QA) | Host base de la API |
+| `LAMUNDIAL_APIKEY` | (vacio) | Header `apikey` literal |
+| `LAMUNDIAL_PRODUCTOR` | `80080` | ID de productor |
+| `LAMUNDIAL_CUSUARIO` | `4` | ID de usuario |
+| `LAMUNDIAL_PLAN_DEFAULT` | `RCVBAS` | Plan por defecto |
+| `POLICY_MODE` | `live` | `live` / `mock` |
+
+### Meritop (Banco Activo - Pago Movil)
+
+| Variable | Default | Descripcion |
+|---|---|---|
+| `MERITOP_URL2` | `http://172.30.149.18:9040` | URL del proxy |
+| `MERITOP_APIKEY` | (vacio) | GUID de autenticacion |
+| `MERITOP_USERNAME` | (vacio) | Usuario integrador |
+| `MERITOP_PASSWORD` | (vacio) | Contrasena integrador |
+| `MERITOP_BANK` | (vacio) | UUID del banco |
+| `MERITOP_CHANNEL` | (vacio) | UUID del canal |
+| `MERITOP_TERMINAL` | (vacio) | UUID del terminal |
+| `MERITOP_ENABLED` | `true` | Activar/desactivar el modulo |
+| `MERITOP_MOCK` | `false` | Simular respuestas (sin VPN) |
+
+### SyPago (Debito OTP)
+
+| Variable | Default | Descripcion |
+|---|---|---|
+| `SYPAGO_URL` | (QA) | Host base |
+| `SYPAGO_BEARER_TOKEN` | (vacio) | JWT fijo del integrador |
+| `SYPAGO_BANK_CODE` | `0108` | Banco acreedor |
+| `SYPAGO_TYPE` | `CNTA` | Tipo de cuenta |
+| `SYPAGO_NUMBER` | (config) | Numero de cuenta La Mundial |
+| `SYPAGO_WEBHOOK_URL` | (vacio) | URL del webhook |
+| `SYPAGO_MOCK` | `false` | Simular OTP/debito |
 
 > Las variables `VITE_*` que el cliente debe ver van en **`frontend/.env`** (lo crea `setup.ps1`). Vite **no** lee variables del `.env` raiz por defecto.
-
-## Scripts de despliegue
-
-| Script | Proposito | Idempotente | Requiere |
-|---|---|:---:|---|
-| `setup.ps1` | Verificar prerequisitos, instalar deps, generar `.env` con secrets | Si | Node, npm, Git |
-| `start-dev.ps1` | Modo desarrollo en ventanas separadas | Si | Setup completado |
-| `stop.ps1` | Detener todo lo que escucha en puertos del proyecto | Si | - |
-| `deploy.ps1` | Validar env, build, levantar con PM2 o Docker | Si | PM2 o Docker |
-
-Todos los scripts:
-
-- Usan prefijos `[OK]`, `[INFO]`, `[WARN]`, `[ERROR]` con colores.
-- Manejan errores con `try/catch` y `$ErrorActionPreference = 'Stop'`.
-- Funcionan en **PowerShell 5.1** (Windows 10/11 nativo) y **PowerShell 7+**.
-- Usan **ASCII puro** (sin emojis ni caracteres no ASCII).
 
 ## Endpoints de la API
 
 Base URL en desarrollo: `http://localhost:3001/api`
 
+### Salud y documentos
+
 | Metodo | Ruta | Descripcion |
 |---|---|---|
 | GET | `/api/health` | Health check (status, env, timestamp) |
-| POST | `/api/documents/upload` | Sube y procesa un documento (cedula/licencia/RUST/RIF) |
-| POST | `/api/policies/emit` | Emite una poliza y retorna el numero |
+| POST | `/api/documents/upload` | Sube y procesa un documento (multipart/form-data) |
 
-### `POST /api/documents/upload`
+### Catalogo de vehiculos (INMA - via La Mundial)
 
-Body: `multipart/form-data`
-
-| Campo | Tipo | Descripcion |
+| Metodo | Ruta | Descripcion |
 |---|---|---|
-| `file` | binary | JPG, PNG, SVG o PDF (max 10 MB) |
-| `docType` | string | `cedula` / `licencia` / `certificado` / `rif` |
+| GET | `/api/catalogo/anios` | `{ min, max }` rango de anios disponibles |
+| GET | `/api/catalogo/marcas?fano=2024` | Lista de marcas |
+| GET | `/api/catalogo/modelos?fano=2024&cmarca=074` | Modelos de una marca |
+| GET | `/api/catalogo/versiones?fano=2024&cmarca=074&cmodelo=005` | Versiones |
+| GET | `/api/catalogo/resolver?fano=2024&marca=Toyota&modelo=Corolla` | Resuelve texto libre |
 
-Respuesta 200:
+### Polizas (La Mundial)
 
-```json
-{
-  "success": true,
-  "message": "Documento procesado exitosamente.",
-  "docType": "cedula",
-  "file": {
-    "id": "uuid",
-    "name": "cedula.png",
-    "size": 234567,
-    "mimeType": "image/png",
-    "url": "/files/abc.png"
-  },
-  "ocr": {
-    "nombre": "Maria",
-    "apellido": "Fernandez",
-    "identificacion": "18456329",
-    "tipoDoc": "V"
-  }
-}
-```
+| Metodo | Ruta | Descripcion |
+|---|---|---|
+| POST | `/api/policies/quote` | Cotiza la prima sin emitir |
+| POST | `/api/policies/emit` | Cotiza y emite la poliza |
 
-### `POST /api/policies/emit`
+### Pagos: Banco Activo (Meritop)
 
-Body JSON:
+| Metodo | Ruta | Descripcion |
+|---|---|---|
+| POST | `/api/payments/verify-mobile` | Verifica un Pago Movil enviado por el cliente |
 
-```json
-{
-  "tomador": { "nombre": "...", "apellido": "...", "identificacion": "..." },
-  "plan":    { "name": "Black Signature", "price": "$120 / mes" },
-  "payment": { "method": "transfer" }
-}
-```
+### Pagos: Debito OTP (SyPago)
 
-Respuesta 201:
+| Metodo | Ruta | Descripcion |
+|---|---|---|
+| POST | `/api/payments/otp/request` | Pide al banco que envie OTP al cliente |
+| POST | `/api/payments/otp/confirm` | Confirma OTP y ejecuta el debito |
+| GET | `/api/payments/otp/status/:transactionId` | Consulta estado de transaccion |
 
-```json
-{
-  "success": true,
-  "policy": {
-    "number": "LM-2026-456789",
-    "holder": "Maria Fernandez",
-    "plan": "Black Signature",
-    "price": "$120 / mes",
-    "emittedAt": "2026-04-27T14:00:00.000Z"
-  }
-}
-```
+## Integraciones externas
 
-### `GET /api/health`
+### La Mundial de Seguros
 
-```json
-{ "status": "ok", "env": "production", "time": "2026-04-27T14:00:00.000Z" }
-```
+Cliente HTTP en `server/src/services/lamundial/lamundialClient.js`. Llama a:
+
+- `POST /CorreccionCalculo/api/v1/external/getCotizacionAuto` -> devuelve `mprima`, `mprimaext`, `ptasa`
+- `POST /CorreccionCalculo/api/v1/external/createEmissionAuto` -> devuelve `cnpoliza`, `urlpoliza`
+
+El orquestador (`policyService.js`) realiza el flujo completo `quote -> emit` con un solo llamado desde el frontend. La validacion del payload (`policyValidator.js`) corre antes del envio para fallar rapido.
+
+### Banco Activo (Meritop)
+
+Verificacion de Pago Movil. Flujo en `server/src/services/meritop/meritopClient.js`:
+
+1. `POST /login` con `X-API-KEY` -> JWT (cacheado en memoria)
+2. `POST /payment/verifymobilepayment` con `Authorization: bearer <jwt>`
+
+El JWT se refresca automaticamente al recibir 401 una vez. Codigos de resultado mapeados:
+
+| Codigo | Significado |
+|---|---|
+| B010 | Transaccion encontrada y disponible |
+| B000 | Transaccion encontrada (ya usada) |
+| B001 | Transaccion no encontrada |
+| B002 | Transaccion duplicada |
+
+> **Nota**: La API real solo es accesible desde la red interna del banco. Usa `MERITOP_MOCK=true` para desarrollo local.
+
+### SyPago (Debito OTP)
+
+Pasarela de cobros que debita la cuenta del cliente con clave de un solo uso. Flujo en `server/src/services/sypago/sypagoClient.js`:
+
+1. `POST /api/v1/request/otp` -> el banco del cliente envia OTP al telefono/email
+2. Cliente ingresa OTP en la UI
+3. `POST /api/v1/transaction/otp` -> ejecuta el debito
+4. (Opcional) `GET /api/v1/transaction/{id}` -> consulta estado
+
+Soporta modo mock con `SYPAGO_MOCK=true`.
+
+### Google Gemini (OCR)
+
+Proveedor en `server/src/services/ocrProviders/geminiProvider.js`. Usa `gemini-2.5-flash-lite` por defecto. Procesa cedula, RUST y licencia con prompts especializados. Detecta automaticamente cuando el usuario sube un documento que NO corresponde al slot (mismatch) y devuelve un 422 accionable al frontend.
 
 ## Flujo funcional (5 pasos)
 
-1. **OCR** - Carga de cedula, licencia y certificado/RUST. Pre-llena los campos.
-2. **Vehiculo** - Datos del vehiculo + conductor habitual.
-3. **Datos del cliente** - Tomador, asegurado, beneficiario.
-4. **Plan** - Categoria (personal, premium, comercial, flota), plan, suma asegurada, billing mensual/anual.
-5. **Pago + Emision** - Metodo de pago, confirmacion, numero de poliza.
+1. **OCR** - Carga de cedula y certificado/RUST. Pre-llena los campos automaticamente.
+2. **Datos del cliente** - Tomador (asegurado por defecto), beneficiario opcional.
+3. **Vehiculo** - Marca/modelo/version desde catalogo INMA, conductor habitual opcional.
+4. **Plan** - Categoria y plan; cotizacion en tiempo real contra La Mundial.
+5. **Pago + Emision** - Pago Movil (Banco Activo) o Debito OTP (SyPago); emision automatica.
 
 ## Troubleshooting
 
@@ -352,58 +481,46 @@ Respuesta 201:
 
 O cambia el puerto en `.env`: `PORT=3002` (recuerda actualizar tambien `CORS_ORIGINS` y el proxy de `frontend/vite.config.ts`).
 
-### "Cannot find module 'dotenv'" o similar
+### "Cannot find module 'sharp'" en produccion
+
+`sharp` ahora vive en `dependencies` del backend. Si actualizas desde una version vieja:
 
 ```powershell
-.\setup.ps1 -Force
+Set-Location server ; npm install sharp ; Set-Location ..
 ```
 
-### "npm ci falla en deploy.ps1"
+### "Verificacion de Pago Movil siempre da 503"
 
-Asegurate de que `package-lock.json` este commiteado y actualizado:
+Meritop (Banco Activo) solo funciona desde la red interna del banco. Para desarrollo local activa el modo simulado:
+
+```env
+MERITOP_MOCK=true
+```
+
+### "SyPago dice token vacio"
+
+El JWT de SyPago suele ser muy largo. Asegurate de pegar el valor completo en `.env` (sin saltos de linea ni espacios). Verifica:
 
 ```powershell
-Set-Location server   ; npm install ; Set-Location ..
-Set-Location frontend ; npm install ; Set-Location ..
+Get-Content .env | Select-String "SYPAGO_BEARER_TOKEN"
 ```
-
-### "PM2 no encontrado"
-
-```powershell
-npm install -g pm2
-pm2 ping
-```
-
-Si `pm2 ping` falla, abre una nueva sesion de PowerShell para que el PATH se recargue.
-
-### "El script no se puede cargar porque la ejecucion de scripts esta deshabilitada"
-
-```powershell
-Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
-```
-
-### "Vite no toma las variables del .env raiz"
-
-Vite lee desde `frontend/.env`. Las variables que usa el cliente deben llevar prefijo `VITE_`. `setup.ps1` te crea ese archivo con los valores correctos.
 
 ### "Mi cedula/RUST no se lee bien"
 
 Por defecto el OCR esta en modo `mock` (devuelve datos de ejemplo). Para activar OCR real:
 
-1. Edita `.env`: `OCR_PROVIDER=openai` (o `gemini`).
-2. Coloca tu API key: `OPENAI_API_KEY=sk-...`.
-3. Reinicia: `.\stop.ps1 ; .\deploy.ps1`.
+1. Edita `.env`: `OCR_PROVIDER=gemini`.
+2. Coloca tu API key: `GEMINI_API_KEY=...`.
+3. Reinicia: `npm run dev`.
 
-### Health check timeout en deploy.ps1
+### "El selector de banco no filtra"
 
-Revisa los logs:
+Hard-refresh del navegador (`Ctrl+Shift+R` / `Cmd+Shift+R`). Si persiste, limpia el cache de Vite:
 
 ```powershell
-Get-Content .\logs\rcv-api.err.log -Tail 50
-pm2 logs rcv-api --lines 100
+Remove-Item -Recurse -Force .\frontend\node_modules\.vite
+npm run dev
 ```
-
-Las causas tipicas son: puerto ocupado, falta `.env`, o `SESSION_SECRET` vacio.
 
 ### Limpiar todo y empezar de cero
 

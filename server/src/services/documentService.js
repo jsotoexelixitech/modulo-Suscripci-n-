@@ -11,6 +11,14 @@
 
 const VALID_DOC_TYPES = ['cedula', 'licencia', 'certificado', 'rif'];
 
+const DOC_TYPE_LABELS = {
+  cedula: 'Cedula de Identidad',
+  licencia: 'Licencia de Conducir',
+  certificado: 'Certificado de Circulacion',
+  rif: 'Registro Unico de Informacion Fiscal (RIF)',
+  desconocido: 'documento no reconocido',
+};
+
 /**
  * Validacion basica del archivo (tamano y mime).
  */
@@ -55,6 +63,7 @@ function simulateOcr(docType) {
       tipoDoc: 'V',
       fechaNacimiento: '1990-04-15',
       sexo: 'Femenino',
+      estadoCivil: 'Soltero(a)',
     },
     licencia: {
       numeroLicencia: 'LIC-0234567',
@@ -99,16 +108,52 @@ async function runOcr(file, docType) {
       const startedMsg = `[OCR] gemini OK (${result.meta.elapsedMs} ms) docType=${docType} model=${result.meta.model}`;
       console.log(startedMsg);
 
+      // Validacion: el header del documento debe coincidir con el slot solicitado.
+      const detected = result.fields && result.fields.documentoTipo;
+      if (detected && detected !== docType) {
+        const expectedLabel = DOC_TYPE_LABELS[docType] || docType;
+        const detectedLabel = DOC_TYPE_LABELS[detected] || detected;
+        console.warn(
+          `[OCR] mismatch docType: expected=${docType} detected=${detected} model=${result.meta.model}`
+        );
+        return {
+          provider: 'gemini',
+          fields: null,
+          meta: result.meta,
+          mismatch: {
+            expected: docType,
+            detected,
+            expectedLabel,
+            detectedLabel,
+            message:
+              `El documento subido parece ser un(a) "${detectedLabel}", ` +
+              `pero el sistema esperaba un(a) "${expectedLabel}". ` +
+              'Por favor sube el archivo correcto en este espacio.',
+          },
+        };
+      }
+
+      // Limpiamos el campo interno de validacion antes de devolver al frontend.
+      if (result.fields && 'documentoTipo' in result.fields) {
+        delete result.fields.documentoTipo;
+      }
+
       return {
         provider: 'gemini',
         fields: result.fields,
         meta: result.meta,
       };
     } catch (err) {
-      console.error(`[OCR] gemini fallo, usando fallback mock. docType=${docType} error=${err.message}`);
+      // IMPORTANTE: cuando OCR_PROVIDER=gemini y Gemini falla, NUNCA debemos
+      // devolver datos mock por defecto al cliente: el usuario los percibe
+      // como datos reales extraidos del documento. En su lugar devolvemos
+      // campos vacios + `ocrFailed`, y el frontend muestra un aviso para que
+      // el usuario complete el formulario manualmente.
+      console.error(`[OCR] gemini fallo. docType=${docType} error=${err.message}`);
       return {
-        provider: 'mock-fallback',
-        fields: simulateOcr(docType),
+        provider: 'gemini',
+        fields: {},
+        ocrFailed: true,
         error: err.message,
       };
     }
@@ -127,4 +172,5 @@ module.exports = {
   simulateOcr,
   runOcr,
   VALID_DOC_TYPES,
+  DOC_TYPE_LABELS,
 };

@@ -1,11 +1,12 @@
-﻿import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Upload, CheckCircle2, AlertCircle, RotateCcw, Eye,
   IdCard, Car, FileText, Building2, Sparkles, ScanLine,
-  Wand2, Download, MousePointerClick,
+  Wand2, Download, MousePointerClick, Camera, Images,
 } from 'lucide-react';
 import { useWizardStore } from '../../store/wizardStore';
-import { uploadDocument } from '../../lib/api';
+import { uploadDocument, DocTypeMismatchError } from '../../lib/api';
+import { toast } from '../../store/toastStore';
 import { Badge } from '../../components/ui/Badge';
 import { CircularProgress } from '../../components/ui/CircularProgress';
 import { AnimatedCounter } from '../../components/ui/AnimatedCounter';
@@ -61,6 +62,7 @@ function UploadDocCard({
   onOpenPreview: (file: DocumentFile, title: string) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
 
   const docState = useWizardStore((s) => s.documents[config.type]);
@@ -87,8 +89,19 @@ function UploadDocCard({
   const isClickable = docState.status === 'idle' || docState.status === 'error';
   const Icon = config.Icon;
 
-  function handleCardClick() {
-    if (isClickable) inputRef.current?.click();
+  function handleCardClick(e: React.MouseEvent) {
+    // En móvil los botones de cámara/galería manejan el click directamente.
+    // Solo activar el input genérico si el click viene del área de la tarjeta
+    // (no de uno de los botones), y si NO es un dispositivo táctil (desktop).
+    if (!isClickable) return;
+    const isTouchDevice = window.matchMedia('(hover: none)').matches;
+    if (!isTouchDevice) {
+      // Desktop: comportamiento original — abre el selector de archivos
+      const target = e.target as HTMLElement;
+      if (!target.closest('[data-upload-btn]')) {
+        inputRef.current?.click();
+      }
+    }
   }
 
   function handleCardKey(e: React.KeyboardEvent) {
@@ -99,8 +112,70 @@ function UploadDocCard({
     }
   }
 
-  async function handleFile(file: File) {
+  /**
+   * Prepara la imagen para OCR antes de subirla:
+   * - Redimensiona al máximo 1600 px (suficiente para que Gemini lea texto)
+   * - Convierte todo a JPEG calidad 82 % → documentos quedan ~200-500 KB
+   * - HEIC/HEIF (iOS galería), PNG, WebP, Android JPEG → todos → JPEG
+   * - PDFs pasan sin cambios
+   *
+   * Gemini OCR no necesita fotos de alta fidelidad; necesita texto legible.
+   */
+  async function prepareFile(raw: File): Promise<File> {
+    if (raw.type === 'application/pdf') return raw;
+
+    return new Promise((resolve) => {
+      const MAX_PX  = 1600;   // suficiente para leer texto en documentos A4/A5
+      const QUALITY = 0.82;   // 82 % → texto nítido, tamaño mínimo
+
+      const url = URL.createObjectURL(raw);
+      const img = new Image();
+
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+
+        let { width, height } = img;
+
+        // Solo escala si supera el máximo; nunca ampliar
+        if (width > MAX_PX || height > MAX_PX) {
+          if (width >= height) {
+            height = Math.round((height * MAX_PX) / width);
+            width  = MAX_PX;
+          } else {
+            width  = Math.round((width * MAX_PX) / height);
+            height = MAX_PX;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width  = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { resolve(raw); return; }
+
+        // Fondo blanco para documentos con transparencia (PNG con fondo vacío)
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) { resolve(raw); return; }
+            const name = raw.name.replace(/\.[^.]+$/, '.jpg');
+            resolve(new File([blob], name, { type: 'image/jpeg' }));
+          },
+          'image/jpeg',
+          QUALITY,
+        );
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(raw); };
+      img.src = url;
+    });
+  }
+
+  async function handleFile(rawFile: File) {
     setDocState(config.type, { status: 'uploading', progress: 0, error: undefined });
+    const file = await prepareFile(rawFile);
 
     try {
       const result = await uploadDocument(file, config.type, (pct) => {
@@ -110,6 +185,25 @@ function UploadDocCard({
       setDocState(config.type, { status: 'processing', progress: 100 });
       await new Promise((r) => setTimeout(r, 800));
 
+      // Caso degradado: el archivo se subio pero Gemini no pudo leerlo
+      // (cuota, calidad de imagen, etc.). NO precargamos datos por defecto:
+      // el formulario del siguiente paso quedara vacio para que el usuario
+      // lo complete manualmente.
+      if (result.ocrFailed) {
+        toast.warning(
+          `No pudimos leer "${config.label}"`,
+          'El archivo quedo cargado, pero tendras que completar los datos a mano en el siguiente paso.',
+          7000
+        );
+        setDocState(config.type, {
+          status: 'done',
+          progress: 100,
+          file: result.file,
+          ocr: {},
+        });
+        return;
+      }
+
       setDocState(config.type, {
         status: 'done',
         progress: 100,
@@ -117,9 +211,24 @@ function UploadDocCard({
         ocr: result.ocr,
       });
     } catch (err: unknown) {
+      if (err instanceof DocTypeMismatchError) {
+        toast.warning(
+          `Documento incorrecto en "${config.label}"`,
+          `Detectamos: ${err.detectedLabel}. Esperabamos: ${err.expectedLabel}.`,
+          7000
+        );
+        setDocState(config.type, {
+          status: 'error',
+          progress: 0,
+          error: `Subiste un(a) ${err.detectedLabel}. Aqui va ${err.expectedLabel}.`,
+        });
+        return;
+      }
+
       const message =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
         'Error al procesar el documento.';
+      toast.error(`No pudimos procesar "${config.label}"`, message, 6000);
       setDocState(config.type, { status: 'error', progress: 0, error: message });
     }
   }
@@ -159,12 +268,22 @@ function UploadDocCard({
         <div className={`absolute -top-12 -right-12 w-24 h-24 rounded-full bg-gradient-to-br ${config.accent} opacity-[0.08] blur-2xl pointer-events-none`} />
       )}
 
+      {/* Input galería/archivo — acepta imágenes en cualquier formato + PDF */}
       <input
         ref={inputRef}
         type="file"
-        accept=".jpg,.jpeg,.png,.pdf,.svg"
+        accept="image/*,image/heic,image/heif,.pdf"
         className="hidden"
-        onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+        onChange={(e) => { if (e.target.files?.[0]) { handleFile(e.target.files[0]); e.target.value = ''; } }}
+      />
+      {/* Input cámara — iOS y Android: cámara trasera directamente */}
+      <input
+        ref={cameraRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(e) => { if (e.target.files?.[0]) { handleFile(e.target.files[0]); e.target.value = ''; } }}
       />
 
       {/* Top bar */}
@@ -205,18 +324,44 @@ function UploadDocCard({
         )}
 
         {docState.status === 'idle' && (
-          <div className="flex flex-col items-center gap-2.5 text-slate-400 group-hover:text-indigo-500 transition-colors pointer-events-none">
-            <div className="relative w-14 h-14 rounded-2xl bg-white border-2 border-dashed border-slate-300 grid place-items-center group-hover:border-indigo-400 group-hover:bg-indigo-50/60 transition-all">
+          <div className="flex flex-col items-center gap-2.5 text-slate-400 transition-colors">
+            {/* Ícono central — desktop y móvil */}
+            <div className="relative w-14 h-14 rounded-2xl bg-white border-2 border-dashed border-slate-300 grid place-items-center group-hover:border-indigo-400 group-hover:bg-indigo-50/60 transition-all pointer-events-none">
               <Upload size={20} strokeWidth={2.2} className="group-hover:scale-110 transition-transform" />
-              <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-indigo-500 text-white grid place-items-center opacity-0 group-hover:opacity-100 transition-all scale-75 group-hover:scale-100 shadow-[0_4px_12px_rgba(15, 26, 90,0.4)]">
+              <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-indigo-500 text-white grid place-items-center opacity-0 group-hover:opacity-100 transition-all scale-75 group-hover:scale-100 shadow-[0_4px_12px_rgba(15,26,90,0.4)]">
                 <span className="text-[0.6rem] font-black">+</span>
               </span>
             </div>
-            <span className="text-xs font-bold inline-flex items-center gap-1.5">
+
+            {/* Desktop: texto de arrastre */}
+            <span className="hidden sm:inline-flex text-xs font-bold items-center gap-1.5 pointer-events-none group-hover:text-indigo-500 transition-colors">
               <MousePointerClick size={11} className="opacity-70" />
               Click o arrastra aquí
             </span>
-            <span className="text-[0.62rem] text-slate-400 font-mono uppercase tracking-wider">JPG · PNG · PDF · SVG</span>
+
+            {/* Móvil: botones Cámara y Galería */}
+            <div className="flex sm:hidden gap-2 mt-1">
+              <button
+                data-upload-btn
+                type="button"
+                onClick={(e) => { e.stopPropagation(); cameraRef.current?.click(); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 text-white text-xs font-bold shadow active:scale-95 transition-transform"
+              >
+                <Camera size={13} />
+                Cámara
+              </button>
+              <button
+                data-upload-btn
+                type="button"
+                onClick={(e) => { e.stopPropagation(); inputRef.current?.click(); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-bold shadow active:scale-95 transition-transform"
+              >
+                <Images size={13} />
+                Galería
+              </button>
+            </div>
+
+            <span className="text-[0.62rem] text-slate-400 font-mono uppercase tracking-wider pointer-events-none">JPG · PNG · PDF</span>
           </div>
         )}
 
@@ -296,19 +441,61 @@ function UploadDocCard({
   );
 }
 
-async function fetchDemoFile(slug: string): Promise<File> {
-  const res = await fetch(`/samples/${slug}`);
-  if (!res.ok) throw new Error(`No se pudo cargar /samples/${slug}`);
-  const blob = await res.blob();
-  return new File([blob], slug, { type: 'image/svg+xml' });
-}
-
-const DEMO_FILES: Record<DocType, string> = {
-  cedula: 'cedula-demo.svg',
-  licencia: 'licencia-demo.svg',
-  certificado: 'certificado-demo.svg',
-  rif: 'rif-demo.svg',
+/**
+ * Documentos demo: 100% client-side. NO pasan por Gemini para no consumir
+ * cuota ni provocar `ocrFailed`. Cuando el usuario hace click en
+ * "Cargar documentos demo" obtenemos los datos pre-extraidos de DEMO_OCR
+ * y mostramos el SVG correspondiente en el preview.
+ *
+ * Los datos son coherentes entre si (mismo titular, mismo vehiculo) para
+ * que el resto del wizard sea creible.
+ */
+const DEMO_FILES: Record<DocType, { name: string; mimeType: string; url: string }> = {
+  cedula: { name: 'cedula-demo.svg', mimeType: 'image/svg+xml', url: '/samples/cedula-demo.svg' },
+  licencia: { name: 'licencia-demo.svg', mimeType: 'image/svg+xml', url: '/samples/licencia-demo.svg' },
+  certificado: { name: 'certificado-demo.svg', mimeType: 'image/svg+xml', url: '/samples/certificado-demo.svg' },
+  rif: { name: 'rif-demo.svg', mimeType: 'image/svg+xml', url: '/samples/rif-demo.svg' },
 };
+
+const DEMO_OCR: Record<DocType, Record<string, string>> = {
+  cedula: {
+    nombre: 'Maria',
+    apellido: 'Fernandez',
+    identificacion: '18456329',
+    tipoDoc: 'V',
+    fechaNacimiento: '1990-04-15',
+    sexo: 'Femenino',
+    estadoCivil: 'Soltero(a)',
+  },
+  licencia: {
+    numeroLicencia: 'LIC-0234567',
+    categoria: '5ta',
+    vencimiento: '2027-06-30',
+  },
+  certificado: {
+    placa: 'AE123KT',
+    marca: 'Toyota',
+    modelo: 'Corolla',
+    año: '2020',
+    serial: 'VIN20TOYCO2020001',
+    color: 'Plateado',
+  },
+  rif: {
+    rif: 'V-18456329-0',
+    razonSocial: 'Maria Fernandez',
+  },
+};
+
+function makeDemoFile(type: DocType): DocumentFile {
+  const meta = DEMO_FILES[type];
+  return {
+    id: `demo-${type}-${Date.now()}`,
+    name: meta.name,
+    size: 0,
+    mimeType: meta.mimeType,
+    url: meta.url,
+  };
+}
 
 export function OcrStep() {
   const { documents, ocrDone, setOcrDone, setTomador, setVehicle, setDocState } = useWizardStore();
@@ -329,6 +516,7 @@ export function OcrStep() {
           tipoDoc: cedula.tipoDoc ?? 'V',
           fechaNac: cedula.fechaNacimiento ?? '',
           sexo: cedula.sexo ?? '',
+          estadoCivil: cedula.estadoCivil ?? '',
         });
       }
       const cert = documents.certificado.ocr;
@@ -349,37 +537,50 @@ export function OcrStep() {
   const completedCount = requiredDocs.filter((d) => documents[d].status === 'done').length;
   const completionPct = (completedCount / requiredDocs.length) * 100;
 
-  async function uploadOne(type: DocType) {
-    try {
-      const file = await fetchDemoFile(DEMO_FILES[type]);
-      setDocState(type, { status: 'uploading', progress: 0, error: undefined });
-      const result = await uploadDocument(file, type, (pct) => {
-        setDocState(type, { progress: pct });
-      });
-      setDocState(type, { status: 'processing', progress: 100 });
-      await new Promise((r) => setTimeout(r, 700));
-      setDocState(type, {
-        status: 'done',
-        progress: 100,
-        file: result.file,
-        ocr: result.ocr,
-      });
-    } catch (err: unknown) {
-      const message =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        'Error al cargar el demo.';
-      setDocState(type, { status: 'error', progress: 0, error: message });
+  /**
+   * Carga un documento demo con simulacion visual (uploading -> processing -> done).
+   * NO realiza ninguna llamada de red: usa DEMO_OCR como fuente de datos.
+   * Esto garantiza que los demos funcionen siempre, incluso si Gemini esta caido
+   * o sin cuota.
+   */
+  async function loadDemoOne(type: DocType) {
+    setDocState(type, { status: 'uploading', progress: 0, error: undefined });
+
+    for (let p = 10; p <= 100; p += 18) {
+      await new Promise((r) => setTimeout(r, 60));
+      setDocState(type, { progress: p });
     }
+
+    setDocState(type, { status: 'processing', progress: 100 });
+    await new Promise((r) => setTimeout(r, 600));
+
+    setDocState(type, {
+      status: 'done',
+      progress: 100,
+      file: makeDemoFile(type),
+      ocr: DEMO_OCR[type],
+    });
   }
 
   async function loadAllDemos() {
     setLoadingDemo(true);
-    const order: DocType[] = ['cedula', 'licencia', 'certificado', 'rif'];
-    for (const t of order) {
-      await uploadOne(t);
-      await new Promise((r) => setTimeout(r, 220));
+    try {
+      const order: DocType[] = ['cedula', 'licencia', 'certificado', 'rif'];
+      for (const t of order) {
+        await loadDemoOne(t);
+        await new Promise((r) => setTimeout(r, 200));
+      }
+      toast.success(
+        'Documentos demo cargados',
+        'Datos pre-cargados para que pruebes el flujo completo. Puedes editarlos en el siguiente paso.',
+        4500
+      );
+    } catch (err) {
+      console.error(err);
+      toast.error('Error cargando demos', 'No se pudieron cargar los documentos de prueba.', 5000);
+    } finally {
+      setLoadingDemo(false);
     }
-    setLoadingDemo(false);
   }
 
   return (

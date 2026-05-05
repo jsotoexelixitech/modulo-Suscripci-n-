@@ -8,6 +8,9 @@ import type {
   VehicleData,
   Plan,
   PaymentMethod,
+  IssuedPolicy,
+  PolicyQuote,
+  QuoteState,
 } from '../types';
 
 const defaultDoc = (): DocumentState => ({ status: 'idle', progress: 0 });
@@ -65,7 +68,10 @@ interface WizardActions {
   setCategory: (c: string) => void;
   setSelectedPlan: (plan: Plan | null) => void;
   setPaymentMethod: (m: PaymentMethod) => void;
-  setPolicy: (p: { number: string; emittedAt: string }) => void;
+  setPolicy: (p: IssuedPolicy) => void;
+  setQuote: (q: PolicyQuote, vehicleSignature: string) => void;
+  setQuoteState: (s: QuoteState, error?: string | null) => void;
+  clearQuote: () => void;
   reset: () => void;
 }
 
@@ -88,8 +94,14 @@ const initialState: WizardState = {
   vehicle: defaultVehicle(),
   category: '',
   selectedPlan: null,
-  paymentMethod: 'transfer',
+  // 'mobile' (Pago Móvil vía Banco Activo) es el método activo por defecto.
+  // 'transfer' está oculto en la UI por ahora; se mantendrá el tipo para compat.
+  paymentMethod: 'mobile',
   policy: null,
+  quote: null,
+  quoteState: 'idle',
+  quoteError: null,
+  quoteVehicleSignature: null,
 };
 
 export const useWizardStore = create<WizardState & WizardActions>()((set) => ({
@@ -128,7 +140,23 @@ export const useWizardStore = create<WizardState & WizardActions>()((set) => ({
     set((s) => ({ conductor: { ...s.conductor, ...data } })),
 
   setVehicle: (data) =>
-    set((s) => ({ vehicle: { ...s.vehicle, ...data } })),
+    set((s) => {
+      const next = { ...s.vehicle, ...data };
+      // Invalidamos quote si cambian datos relevantes para la cotizacion.
+      // Incluimos cmarca/cmodelo/cversion para que el cambio de selector INMA también invalide.
+      const sigKeys: (keyof VehicleData)[] = ['placa', 'marca', 'modelo', 'año', 'uso', 'cmarca', 'cmodelo', 'cversion'];
+      const changed = sigKeys.some((k) => s.vehicle[k] !== next[k]);
+      if (changed && s.quote) {
+        return {
+          vehicle: next,
+          quote: null,
+          quoteState: 'idle',
+          quoteError: null,
+          quoteVehicleSignature: null,
+        };
+      }
+      return { vehicle: next };
+    }),
 
   setCategory: (category) => set({ category, selectedPlan: null }),
 
@@ -137,6 +165,20 @@ export const useWizardStore = create<WizardState & WizardActions>()((set) => ({
   setPaymentMethod: (paymentMethod) => set({ paymentMethod }),
 
   setPolicy: (policy) => set({ policy }),
+
+  setQuote: (quote, vehicleSignature) =>
+    set({
+      quote,
+      quoteState: 'ready',
+      quoteError: null,
+      quoteVehicleSignature: vehicleSignature,
+    }),
+
+  setQuoteState: (quoteState, quoteError = null) =>
+    set({ quoteState, quoteError }),
+
+  clearQuote: () =>
+    set({ quote: null, quoteState: 'idle', quoteError: null, quoteVehicleSignature: null }),
 
   reset: () => set(initialState),
 }));

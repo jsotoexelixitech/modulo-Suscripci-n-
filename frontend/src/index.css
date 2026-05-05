@@ -99,9 +99,11 @@
      Constantia no está en Google Fonts; usamos Source Serif 4
      que mantiene el feel humanista del wordmark "La Mundial". */
   --font-sans:    "Poppins", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-  --font-display: "Poppins", "Source Serif 4", ui-sans-serif, system-ui, sans-serif;
-  --font-serif:   "Source Serif 4", Constantia, Georgia, "Times New Roman", serif;
-  --font-mono:    "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+  /* Display: Poppins puro segun manual — sin fallback serif que cambia la textura */
+  --font-display: "Poppins", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Wordmark/titulares: Constantia (fuente oficial del manual) + Source Serif 4 como fallback para macOS/Linux */
+  --font-serif:   Constantia, "Source Serif 4", Georgia, "Times New Roman", serif;
+  --font-mono:    "JetBrains Mono", ui-monospace, "SF Mono", "Cascadia Code", monospace;
 }
 
 * { box-sizing: border-box; }

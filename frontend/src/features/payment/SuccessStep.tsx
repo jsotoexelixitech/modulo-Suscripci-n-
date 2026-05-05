@@ -1,12 +1,13 @@
-﻿import { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import { useWizardStore } from '../../store/wizardStore';
 import { Button } from '../../components/ui/Button';
 import { toast } from '../../store/toastStore';
 import {
   CheckCircle2, Download, Mail, RefreshCw, Sparkles, ShieldCheck,
-  Calendar, Share2, Copy,
+  Calendar, Share2, Copy, ExternalLink,
 } from 'lucide-react';
+import { formatUsdShort } from '../../lib/money';
 
 function fireConfetti() {
   const colors = ['#0F1A5A', '#2E6DBF', '#E84F51', '#10B981', '#F59E0B'];
@@ -63,10 +64,17 @@ export function SuccessStep() {
   }, []);
 
   const holder = [tomador.nombre, tomador.apellido].filter(Boolean).join(' ') || 'Cliente';
-  const policyNum = policy?.number ?? 'LM-2026-000000';
+  const policyNum = policy?.cnpoliza || policy?.number || 'LM-2026-000000';
+  const reciboNum = policy?.cnrecibo || '';
+  const pdfUrl = policy?.urlpoliza || '';
   const emittedDate = policy?.emittedAt
     ? new Date(policy.emittedAt).toLocaleDateString('es-VE', { day: '2-digit', month: 'short', year: 'numeric' })
     : new Date().toLocaleDateString('es-VE', { day: '2-digit', month: 'short', year: 'numeric' });
+
+  // Prima real emitida (devuelta por La Mundial al emitir).
+  const primaUsd = policy?.quote?.mprimaext;
+  const primaVes = policy?.quote?.mprima;
+  const ptasa = policy?.quote?.ptasa;
 
   const copyPolicy = async () => {
     try {
@@ -74,6 +82,19 @@ export function SuccessStep() {
       toast.success('Copiado al portapapeles', `Número ${policyNum}`, 2800);
     } catch {
       toast.error('No se pudo copiar', 'Intenta de nuevo o copia manualmente.');
+    }
+  };
+
+  const downloadPdf = () => {
+    if (pdfUrl) {
+      window.open(pdfUrl, '_blank', 'noopener,noreferrer');
+      toast.success('Abriendo póliza', 'El PDF se abrió en una nueva pestaña.');
+    } else {
+      toast.warning(
+        'PDF no disponible',
+        'La Mundial no devolvió URL de descarga para esta emisión. Contacta soporte.',
+        5000,
+      );
     }
   };
 
@@ -145,29 +166,57 @@ export function SuccessStep() {
             </div>
 
             <div className="space-y-4">
-              <div>
-                <p className="text-[0.6rem] font-bold text-indigo-300 uppercase tracking-widest mb-1.5">
-                  Número de póliza
-                </p>
-                <div className="flex items-center gap-2">
-                  <p className="font-mono font-black text-2xl sm:text-3xl text-white tracking-wide">
-                    {policyNum}
+              <div className="flex items-end justify-between gap-4 flex-wrap">
+                <div className="min-w-0">
+                  <p className="text-[0.6rem] font-bold text-indigo-300 uppercase tracking-widest mb-1.5">
+                    Número de póliza
                   </p>
-                  <button
-                    onClick={copyPolicy}
-                    className="p-1.5 rounded-md bg-white/10 hover:bg-white/20 transition-colors text-white/70 hover:text-white"
-                    aria-label="Copiar número"
-                  >
-                    <Copy size={11} />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <p className="font-mono font-black text-2xl sm:text-3xl text-white tracking-wide break-all">
+                      {policyNum}
+                    </p>
+                    <button
+                      onClick={copyPolicy}
+                      className="p-1.5 rounded-md bg-white/10 hover:bg-white/20 transition-colors text-white/70 hover:text-white shrink-0"
+                      aria-label="Copiar número"
+                    >
+                      <Copy size={11} />
+                    </button>
+                  </div>
                 </div>
+
+                {/* Prima real emitida — destacada al lado del numero */}
+                {primaUsd ? (
+                  <div className="text-right shrink-0">
+                    <p className="text-[0.6rem] font-bold text-indigo-300 uppercase tracking-widest mb-1.5">
+                      Prima anual emitida
+                    </p>
+                    <p className="font-display font-black text-2xl sm:text-3xl text-white leading-none tabular-nums">
+                      {formatUsdShort(primaUsd)}
+                    </p>
+                    {primaVes ? (
+                      <p className="text-[0.65rem] font-bold text-indigo-200 mt-1 tabular-nums">
+                        Bs{' '}
+                        {primaVes.toLocaleString('es-VE', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </p>
+                    ) : null}
+                    {ptasa ? (
+                      <p className="text-[0.58rem] text-indigo-300/80 mt-0.5 tabular-nums">
+                        Tasa BCV: {ptasa.toFixed(4)}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-5 gap-y-4 pt-4 border-t border-white/10">
                 {[
                   { label: 'Titular', value: holder },
-                  { label: 'Plan', value: selectedPlan?.name ?? '—' },
-                  { label: 'Precio', value: selectedPlan?.price ?? '—' },
+                  { label: 'Plan', value: selectedPlan?.name ?? 'RCV Básico' },
+                  { label: 'Recibo', value: reciboNum || '—' },
                   { label: 'Emitida', value: emittedDate, icon: <Calendar size={11} /> },
                 ].map(({ label, value, icon }) => (
                   <div key={label}>
@@ -179,6 +228,24 @@ export function SuccessStep() {
                   </div>
                 ))}
               </div>
+
+              {/* Link directo al PDF de La Mundial (si existe) */}
+              {pdfUrl ? (
+                <div className="pt-4 border-t border-white/10">
+                  <p className="text-[0.58rem] font-bold text-indigo-300 uppercase tracking-wider mb-1.5">
+                    Documento oficial
+                  </p>
+                  <a
+                    href={pdfUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 text-[0.7rem] font-semibold text-indigo-200 hover:text-white transition-colors break-all underline-offset-2 hover:underline"
+                  >
+                    <ExternalLink size={11} className="shrink-0" />
+                    <span className="truncate">{pdfUrl}</span>
+                  </a>
+                </div>
+              ) : null}
             </div>
           </div>
 
@@ -200,7 +267,7 @@ export function SuccessStep() {
         <Button
           variant="primary"
           size="lg"
-          onClick={() => toast.success('Descarga iniciada', 'Tu póliza se descargará en breve (simulación).')}
+          onClick={downloadPdf}
         >
           <Download size={15} />
           Descargar PDF

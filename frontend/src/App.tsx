@@ -12,7 +12,7 @@ import { VehicleStep } from './features/vehicle/VehicleStep';
 import { PlansStep } from './features/plans/PlansStep';
 import { PaymentStep } from './features/payment/PaymentStep';
 import { SuccessStep } from './features/payment/SuccessStep';
-import { emitPolicy } from './lib/api';
+import { emitPolicy, PolicyEmitError } from './lib/api';
 import { toast } from './store/toastStore';
 import {
   ChevronLeft, ChevronRight, Zap,
@@ -53,11 +53,11 @@ const STEP_TITLES: Record<number, { eyebrow: string; title: string; sub: string 
 };
 
 function useWizardNavigation() {
+  const store = useWizardStore();
   const {
     step, nextStep, prevStep, goTo,
-    documents, selectedPlan, category,
-    tomador, paymentMethod, setPolicy,
-  } = useWizardStore();
+    documents, selectedPlan, category, setPolicy,
+  } = store;
 
   const [emitting, setEmitting] = useState(false);
 
@@ -80,8 +80,8 @@ function useWizardNavigation() {
       const validate = (window as unknown as Record<string, unknown>).__validateStep2 as (() => boolean) | undefined;
       if (validate && !validate()) {
         toast.warning(
-          'Revisa los datos',
-          'Completa los campos obligatorios del cliente.',
+          'Campos obligatorios incompletos',
+          'Completa nombre, apellido, teléfono, correo, fecha de nacimiento, sexo, estado y ciudad para continuar.',
         );
         return;
       }
@@ -117,19 +117,55 @@ function useWizardNavigation() {
     if (step === 5) {
       setEmitting(true);
       try {
+        // Enviamos el wizardState COMPLETO al backend.
+        // El backend orquesta: cotizar -> validar -> emitir contra La Mundial.
+        const wizardState = {
+          tomador: store.tomador,
+          sameInsured: store.sameInsured,
+          asegurado: store.asegurado,
+          hasBeneficiary: store.hasBeneficiary,
+          beneficiario: store.beneficiario,
+          hasDriver: store.hasDriver,
+          conductor: store.conductor,
+          vehicle: store.vehicle,
+          category: store.category,
+          selectedPlan: store.selectedPlan,
+          paymentMethod: store.paymentMethod,
+        };
+
         const result = await emitPolicy({
-          tomador: { nombre: tomador.nombre, apellido: tomador.apellido, identificacion: tomador.identificacion },
-          plan: { name: selectedPlan?.name ?? '', price: selectedPlan?.price ?? '' },
-          payment: { method: paymentMethod },
+          state: wizardState,
+          plan: 'RCVBAS',
+          frecuencia: 'A',
         });
-        setPolicy({ number: result.policy.number, emittedAt: result.policy.emittedAt });
-        toast.success('¡Póliza emitida!', `Número ${result.policy.number}`, 5500);
-        goTo(6);
-      } catch {
-        toast.error(
-          'No pudimos emitir la póliza',
-          'Verifica tu conexión e inténtalo de nuevo.',
+
+        setPolicy({
+          number: result.policy.number,
+          cnpoliza: result.policy.cnpoliza,
+          cnrecibo: result.policy.cnrecibo,
+          urlpoliza: result.policy.urlpoliza,
+          internalPolicyId: result.policy.internalPolicyId,
+          ncuota: result.policy.ncuota,
+          emittedAt: result.policy.emittedAt,
+          quote: result.policy.quote,
+        });
+
+        // Abrimos automaticamente el PDF de la poliza emitida en una pestaña
+        // nueva. Es side-effect del click del usuario, asi pasa los popup
+        // blockers de la mayoria de navegadores. El boton "Descargar PDF" del
+        // SuccessStep tambien lo abre por si el navegador bloquea aqui.
+        if (result.policy.urlpoliza) {
+          window.open(result.policy.urlpoliza, '_blank', 'noopener,noreferrer');
+        }
+
+        toast.success(
+          '¡Póliza emitida!',
+          `Número ${result.policy.cnpoliza}${result.policy.urlpoliza ? ' · PDF abierto en nueva pestaña' : ''}`,
+          6000,
         );
+        goTo(6);
+      } catch (err) {
+        handleEmissionError(err);
       } finally {
         setEmitting(false);
       }
@@ -137,6 +173,57 @@ function useWizardNavigation() {
   }
 
   return { step, handleNext, handlePrev: prevStep, emitting };
+}
+
+function handleEmissionError(err: unknown) {
+  if (err instanceof PolicyEmitError) {
+    switch (err.code) {
+      case 'LAMUNDIAL_PLATE_ALREADY_INSURED':
+        toast.warning(
+          'Vehículo con póliza vigente',
+          'La Mundial detectó que la placa o el serial de carrocería ya tienen una póliza activa. Verifica los datos o contacta a soporte.',
+          8000,
+        );
+        return;
+      case 'INVALID_PAYLOAD':
+        toast.error(
+          'Datos incompletos',
+          err.details?.[0] ?? err.message,
+          7000,
+        );
+        return;
+      case 'LAMUNDIAL_SP_OUTDATED':
+        toast.error(
+          'Servicio temporalmente no disponible',
+          'La Mundial está revisando el servicio. Inténtalo en unos minutos.',
+          7000,
+        );
+        return;
+      case 'LAMUNDIAL_UNAUTHORIZED':
+      case 'LAMUNDIAL_APIKEY_MISSING':
+        toast.error(
+          'Configuración pendiente',
+          'La integración con La Mundial no está disponible. Avisa a soporte.',
+          7000,
+        );
+        return;
+      case 'LAMUNDIAL_NETWORK':
+        toast.error(
+          'Sin conexión con La Mundial',
+          'Verifica tu red e inténtalo de nuevo.',
+          6000,
+        );
+        return;
+      default:
+        toast.error('No pudimos emitir la póliza', err.message, 7000);
+        return;
+    }
+  }
+  toast.error(
+    'No pudimos emitir la póliza',
+    'Ocurrió un error inesperado. Verifica tu conexión e inténtalo de nuevo.',
+    6000,
+  );
 }
 
 export default function App() {

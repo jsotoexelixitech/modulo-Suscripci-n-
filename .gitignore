@@ -17,11 +17,16 @@ build/
 # Runtime data
 server/uploads/*
 !server/uploads/.gitkeep
-logs/
+logs/*
+!logs/.gitkeep
 *.log
 npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
+
+# TypeScript build info cache
+*.tsbuildinfo
+**/*.tsbuildinfo
 
 # PM2
 .pm2/
@@ -51,6 +56,7 @@ coverage/
 
 # Tunnels and local certs
 .cloudflared/
+cloudflare-url.txt
 *.pem
 *.key
 *.crt

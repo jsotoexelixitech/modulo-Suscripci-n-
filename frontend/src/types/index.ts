@@ -17,6 +17,7 @@ export interface OcrResult {
   tipoDoc?: string;
   fechaNacimiento?: string;
   sexo?: string;
+  estadoCivil?: string;
   numeroLicencia?: string;
   categoria?: string;
   vencimiento?: string;
@@ -77,16 +78,52 @@ export interface Plan {
   sumaAseguradaUnit?: string;
 }
 
-export type PaymentMethod = 'card' | 'transfer' | 'mobile';
+export type PaymentMethod = 'card' | 'transfer' | 'mobile' | 'otp';
 
 export interface VehicleData {
   placa: string;
-  marca: string;
-  modelo: string;
+  marca: string;   // nombre descriptivo (ej. "TOYOTA") — para display
+  modelo: string;  // nombre descriptivo (ej. "COROLLA") — para display
   año: string;
   color: string;
   serial: string;
   uso: string;
+  /** Código INMA de marca (ej. "074") — set al elegir en selector de catálogo */
+  cmarca?: string;
+  /** Código INMA de modelo (ej. "005") — set al elegir en selector de catálogo */
+  cmodelo?: string;
+  /** Código INMA de versión (ej. "05") — set al elegir en selector de catálogo */
+  cversion?: string;
+}
+
+export interface PolicyQuote {
+  /** Prima anual en bolivares (VES). */
+  mprima: number;
+  /** Prima anual en dolares (USD). */
+  mprimaext: number;
+  /** Tasa de cambio Bs/USD usada en la cotizacion. */
+  ptasa: number;
+  /** Etiqueta legible del vehiculo cotizado (ej. "TOYOTA / COROLLA"). */
+  vehicleLabel?: string;
+  /** Indica si La Mundial uso el catalogo por defecto (vehiculo no encontrado). */
+  vehicleFallback?: boolean;
+}
+
+export type QuoteState = 'idle' | 'loading' | 'ready' | 'error';
+
+export interface IssuedPolicy {
+  /** Numero de poliza La Mundial (ej. "18-1-0000048127"). Tambien expuesto como `number`. */
+  number: string;
+  cnpoliza: string;
+  /** Numero de recibo La Mundial (ej. "18-100143232"). */
+  cnrecibo?: string;
+  /** URL al PDF emitido por La Mundial. */
+  urlpoliza?: string;
+  /** Identificador interno (no es el numero oficial). */
+  internalPolicyId?: string;
+  ncuota?: number;
+  emittedAt: string;
+  quote?: PolicyQuote;
 }
 
 export interface WizardState {
@@ -104,5 +141,14 @@ export interface WizardState {
   category: string;
   selectedPlan: Plan | null;
   paymentMethod: PaymentMethod;
-  policy: { number: string; emittedAt: string } | null;
+  policy: IssuedPolicy | null;
+  /** Cotizacion vigente desde La Mundial (mprima/mprimaext/ptasa). */
+  quote: PolicyQuote | null;
+  /** Estado de la cotizacion para feedback en UI. */
+  quoteState: QuoteState;
+  /** Mensaje de error de la cotizacion (si quoteState === 'error'). */
+  quoteError: string | null;
+  /** Snapshot del vehiculo con el que se hizo la ultima cotizacion. Sirve para
+   *  invalidar la quote si cambian datos relevantes (placa, marca, modelo, año, uso). */
+  quoteVehicleSignature: string | null;
 }
