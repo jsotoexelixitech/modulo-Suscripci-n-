@@ -3,6 +3,7 @@ import { useWizardStore } from '../../store/wizardStore';
 import { Field, Input, Select, Textarea } from '../../components/ui/FormField';
 import { IdentityInput } from '../../components/ui/IdentityInput';
 import { ToggleSwitch } from '../../components/ui/ToggleSwitch';
+import { useCatalogs } from '../../hooks/useCatalogs';
 import { User, UserPlus, Heart } from 'lucide-react';
 
 export function SectionCard({
@@ -97,6 +98,8 @@ export function EmissionStep() {
     beneficiario, setBeneficiario,
   } = useWizardStore();
 
+  const catalogs = useCatalogs();
+  const [ciudadSearch, setCiudadSearch] = useState('');
   const [errors, setErrors] = useState<ValidationErrors>({});
 
   const validate = () => {
@@ -166,7 +169,7 @@ export function EmissionStep() {
     ];
     const filled  = ALL_KEYS.filter((k) => {
       if (k === 'email2') return has(tomador.email);
-      return has((tomador as Record<string, string>)[k]);
+      return has((tomador as unknown as Record<string, string>)[k]);
     });
     const unfilled = ALL_KEYS.filter((k) => !filled.includes(k));
     initialOrderRef.current = [...filled, ...unfilled];
@@ -255,8 +258,16 @@ export function EmissionStep() {
       <Field label="Sexo *" error={errors.sexo}>
         <Select value={tomador.sexo} onChange={(e) => setTomador({ sexo: e.target.value })}>
           <option value="">— Seleccionar —</option>
-          <option value="Femenino">Femenino</option>
-          <option value="Masculino">Masculino</option>
+          {catalogs.sexos.length > 0
+            ? catalogs.sexos.map((s) => (
+                <option key={String(s.code)} value={String(s.label)}>{s.label}</option>
+              ))
+            : (
+              <>
+                <option value="Femenino">Femenino</option>
+                <option value="Masculino">Masculino</option>
+              </>
+            )}
         </Select>
       </Field>
     ),
@@ -264,29 +275,76 @@ export function EmissionStep() {
       <Field label="Estado civil">
         <Select value={tomador.estadoCivil} onChange={(e) => setTomador({ estadoCivil: e.target.value })}>
           <option value="">— Seleccionar —</option>
-          <option value="Soltero(a)">Soltero(a)</option>
-          <option value="Casado(a)">Casado(a)</option>
-          <option value="Divorciado(a)">Divorciado(a)</option>
-          <option value="Viudo(a)">Viudo(a)</option>
+          {catalogs.estadosCivil.length > 0
+            ? catalogs.estadosCivil.map((s) => (
+                <option key={String(s.code)} value={String(s.label)}>{s.label}</option>
+              ))
+            : (
+              <>
+                <option value="Soltero(a)">Soltero(a)</option>
+                <option value="Casado(a)">Casado(a)</option>
+                <option value="Divorciado(a)">Divorciado(a)</option>
+                <option value="Viudo(a)">Viudo(a)</option>
+              </>
+            )}
         </Select>
       </Field>
     ),
     estado: (
-      <Field label="Estado donde vives *" error={errors.estado} hint="Próximamente podrás seleccionarlo desde una lista">
-        <Input
-          value={tomador.estado}
-          onChange={(e) => setTomador({ estado: e.target.value })}
-          placeholder="Ej. Miranda, Caracas D.C."
-        />
+      <Field label="Estado donde vives *" error={errors.estado}>
+        <Select
+          value={tomador.cestado ? String(tomador.cestado) : ''}
+          onChange={(e) => {
+            const found = catalogs.estados.find((s) => String(s.code) === e.target.value);
+            setTomador({
+              estado : found?.label ?? '',
+              cestado: found ? Number(found.code) : undefined,
+              // Limpiar ciudad al cambiar estado
+              ciudad : '',
+              cciudad: undefined,
+            });
+            setCiudadSearch('');
+          }}
+          disabled={catalogs.loading}
+        >
+          <option value="">{catalogs.loading ? 'Cargando estados…' : '— Seleccionar estado —'}</option>
+          {catalogs.estados.map((s) => (
+            <option key={String(s.code)} value={String(s.code)}>{s.label}</option>
+          ))}
+        </Select>
       </Field>
     ),
     ciudad: (
-      <Field label="Ciudad donde vives *" error={errors.ciudad} hint="Próximamente podrás seleccionarla desde una lista">
+      <Field label="Ciudad donde vives *" error={errors.ciudad}>
+        {/* Buscador encima del selector para facilitar la búsqueda entre ~1500 ciudades */}
         <Input
-          value={tomador.ciudad}
-          onChange={(e) => setTomador({ ciudad: e.target.value })}
-          placeholder="Ej. Caracas, Maracay"
+          value={ciudadSearch}
+          onChange={(e) => setCiudadSearch(e.target.value)}
+          placeholder="Escribe para filtrar ciudad…"
+          className="mb-1"
+          disabled={catalogs.loading}
         />
+        <Select
+          value={tomador.cciudad ? String(tomador.cciudad) : ''}
+          onChange={(e) => {
+            const found = catalogs.ciudades.find((c) => String(c.code) === e.target.value);
+            setTomador({
+              ciudad : found?.label ?? '',
+              cciudad: found ? Number(found.code) : undefined,
+            });
+          }}
+          disabled={catalogs.loading}
+        >
+          <option value="">{catalogs.loading ? 'Cargando ciudades…' : '— Seleccionar ciudad —'}</option>
+          {catalogs.ciudades
+            .filter((c) =>
+              !ciudadSearch.trim() ||
+              c.label.toLowerCase().includes(ciudadSearch.toLowerCase()),
+            )
+            .map((c) => (
+              <option key={String(c.code)} value={String(c.code)}>{c.label}</option>
+            ))}
+        </Select>
       </Field>
     ),
     direccion: (
@@ -400,11 +458,25 @@ export function EmissionStep() {
                 />
               </Field>
               <Field label="Parentesco *" error={errors.benef_parentesco}>
-                <Input
+                <Select
                   value={beneficiario.parentesco ?? ''}
-                  onChange={(e) => setBeneficiario({ parentesco: onlyLetters(e.target.value) })}
-                  placeholder="Ej. hijo, cónyuge, madre"
-                />
+                  onChange={(e) => setBeneficiario({ parentesco: e.target.value })}
+                >
+                  <option value="">— Seleccionar —</option>
+                  {catalogs.parentescos.length > 0
+                    ? catalogs.parentescos.map((p) => (
+                        <option key={String(p.code)} value={String(p.label)}>{p.label}</option>
+                      ))
+                    : (
+                      <>
+                        <option value="Cónyuge">Cónyuge</option>
+                        <option value="Hijo(a)">Hijo(a)</option>
+                        <option value="Padre / Madre">Padre / Madre</option>
+                        <option value="Hermano(a)">Hermano(a)</option>
+                        <option value="Otro">Otro</option>
+                      </>
+                    )}
+                </Select>
               </Field>
             </div>
           )}

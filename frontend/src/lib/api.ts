@@ -420,3 +420,41 @@ export const catalogoApi = {
   resolver: (fano: number, marca: string, modelo: string) =>
     api.get<ResolverResult>(`/catalogo/resolver?fano=${fano}&marca=${encodeURIComponent(marca)}&modelo=${encodeURIComponent(modelo)}`),
 };
+
+// ──────────────────────────────────────────────────────────────────────
+//  Catálogos de La Mundial — Estados, Ciudades y Listas (valrep)
+// ──────────────────────────────────────────────────────────────────────
+
+export interface CatalogItem {
+  code: number | string;
+  label: string;
+}
+
+/** Caché en módulo — persiste durante la sesión, evita re-fetches */
+const _valrepCache: Record<string, CatalogItem[]> = {};
+
+async function _fetchValrep(path: string): Promise<CatalogItem[]> {
+  if (_valrepCache[path]) return _valrepCache[path];
+  const { data } = await api.get<{ ok: boolean; items: CatalogItem[] }>(path);
+  const items = data?.items ?? [];
+  _valrepCache[path] = items;
+  return items;
+}
+
+/** Lista de estados venezolanos con código La Mundial */
+export function getEstados(): Promise<CatalogItem[]> {
+  return _fetchValrep('/valrep/state');
+}
+
+/** Lista completa de ciudades venezolanas con código La Mundial */
+export function getCiudades(): Promise<CatalogItem[]> {
+  return _fetchValrep('/valrep/city');
+}
+
+/**
+ * Lista genérica de La Mundial.
+ * @param domain  SEXO | EDOCIVIL | PARENTESCOS | FRECUENCIAS | MATIPCANAL
+ */
+export function getValrepList(domain: string): Promise<CatalogItem[]> {
+  return _fetchValrep(`/valrep/list/${domain.toUpperCase()}`);
+}

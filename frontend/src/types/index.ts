@@ -53,6 +53,10 @@ export type TomadorData = {
   estado: string;
   ciudad: string;
   direccion: string;
+  /** Código numérico La Mundial del estado (cestado). Se obtiene del selector de catálogo. */
+  cestado?: number;
+  /** Código numérico La Mundial de la ciudad (cciudad). Se obtiene del selector de catálogo. */
+  cciudad?: number;
 };
 
 export type PersonData = {

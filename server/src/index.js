@@ -9,6 +9,7 @@ const cors    = require('cors');
 const path    = require('path');
 
 const uploadRoutes = require('./routes/upload');
+const valrepRoutes = require('./routes/valrep');
 
 const app      = express();
 const PORT     = parseInt(process.env.PORT, 10) || 3001;
@@ -35,6 +36,7 @@ app.use('/files', express.static(path.join(__dirname, '../uploads')));
 
 // ── API ───────────────────────────────────────────────────────────────────────
 app.use('/api', uploadRoutes);
+app.use('/api/valrep', valrepRoutes);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', env: NODE_ENV, time: new Date().toISOString() });

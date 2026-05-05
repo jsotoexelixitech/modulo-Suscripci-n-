@@ -186,10 +186,13 @@ function buildEmissionRequest(state, cotizacion, overrides = {}) {
   const tipo_cedula_tomador = normalizeTipoCedula(tomador.tipoDoc);
   const tipo_cedula_titular = normalizeTipoCedula(titular.tipoDoc || tipo_cedula_tomador);
 
-  const stateCodeTomador = resolveStateCode(tomador.estado);
-  const cityCodeTomador = resolveCityCode(tomador.ciudad, stateCodeTomador);
-  const stateCodeTitular = sameInsured ? stateCodeTomador : resolveStateCode(titular.estado);
-  const cityCodeTitular = sameInsured ? cityCodeTomador : resolveCityCode(titular.ciudad, stateCodeTitular);
+  // Prioridad: código real del selector (cestado/cciudad) → fallback al mapa estático por texto
+  const stateCodeTomador = tomador.cestado   ? parseInt(tomador.cestado, 10)  : resolveStateCode(tomador.estado);
+  const cityCodeTomador  = tomador.cciudad   ? parseInt(tomador.cciudad, 10)  : resolveCityCode(tomador.ciudad, stateCodeTomador);
+  const stateCodeTitular = sameInsured ? stateCodeTomador
+    : (titular.cestado  ? parseInt(titular.cestado, 10)  : resolveStateCode(titular.estado));
+  const cityCodeTitular  = sameInsured ? cityCodeTomador
+    : (titular.cciudad  ? parseInt(titular.cciudad, 10)  : resolveCityCode(titular.ciudad, stateCodeTitular));
 
   const payload = {
     poliza: internalId,
