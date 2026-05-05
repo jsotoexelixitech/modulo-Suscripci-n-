@@ -70,6 +70,21 @@ fi
 
 mkdir -p "$ROOT/logs"
 
+# --- Limpiar procesos anteriores -----------------------------
+info "Limpiando procesos previos en puertos $API_PORT / $WEB_PORT..."
+pkill -f "node src/index.js"  2>/dev/null || true
+pkill -f nodemon               2>/dev/null || true
+pkill -f "vite"                2>/dev/null || true
+pkill -f cloudflared           2>/dev/null || true
+sleep 1
+
+# Forzar liberacion del puerto si persiste
+fuser -k "${API_PORT}/tcp" 2>/dev/null || true
+fuser -k "${WEB_PORT}/tcp" 2>/dev/null || true
+sleep 1
+
+ok "Puertos libres"
+
 # --- Levantar backend + frontend -----------------------------
 banner "Iniciando servicios"
 
