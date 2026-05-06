@@ -95,6 +95,9 @@ if $WITH_TUNNEL; then
 
   info "Modo: Backend + Frontend + Cloudflare Tunnel"
 
+  # Vite necesita saber que el HMR va por wss/443 cuando se accede vía túnel.
+  export VITE_HMR_TUNNEL=1
+
   # Cloudflare en background, captura la URL
   CF_LOG="$ROOT/logs/cloudflare.log"
   # El túnel apunta a Vite (WEB_PORT), no al API.
