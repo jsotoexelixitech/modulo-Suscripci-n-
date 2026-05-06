@@ -3,8 +3,8 @@ import { useWizardStore } from '../../store/wizardStore';
 import { Field, Input, Select, Textarea } from '../../components/ui/FormField';
 import { IdentityInput } from '../../components/ui/IdentityInput';
 import { ToggleSwitch } from '../../components/ui/ToggleSwitch';
-import { useCatalogs } from '../../hooks/useCatalogs';
-import { User, UserPlus, Heart } from 'lucide-react';
+import { useCatalogs, useCiudades } from '../../hooks/useCatalogs';
+import { User, UserPlus, Heart, Wallet } from 'lucide-react';
 
 export function SectionCard({
   title,
@@ -71,6 +71,11 @@ interface ValidationErrors {
   aseg_nombre?: string;
   aseg_apellido?: string;
   aseg_identificacion?: string;
+  // Pagador
+  pag_nombre?: string;
+  pag_apellido?: string;
+  pag_identificacion?: string;
+  pag_telefono?: string;
   // Beneficiario
   benef_nombre?: string;
   benef_apellido?: string;
@@ -94,12 +99,14 @@ export function EmissionStep() {
     tomador, setTomador,
     sameInsured, setSameInsured,
     asegurado, setAsegurado,
+    differentPayer, setDifferentPayer,
+    pagador, setPagador,
     hasBeneficiary, setHasBeneficiary,
     beneficiario, setBeneficiario,
   } = useWizardStore();
 
   const catalogs = useCatalogs();
-  const [ciudadSearch, setCiudadSearch] = useState('');
+  const ciudadesState = useCiudades(tomador.cestado);
   const [errors, setErrors] = useState<ValidationErrors>({});
 
   const validate = () => {
@@ -140,6 +147,18 @@ export function EmissionStep() {
       if (req(asegurado.nombre))        e.aseg_nombre        = 'El nombre es obligatorio';
       if (req(asegurado.apellido))      e.aseg_apellido      = 'El apellido es obligatorio';
       if (req(asegurado.identificacion)) e.aseg_identificacion = 'La identificación es obligatoria';
+    }
+
+    // ── Pagador (solo si NO eres quien paga) ──────────────────────────────
+    if (differentPayer) {
+      if (req(pagador.nombre))         e.pag_nombre         = 'El nombre del pagador es obligatorio';
+      if (req(pagador.apellido))       e.pag_apellido       = 'El apellido del pagador es obligatorio';
+      if (req(pagador.identificacion)) e.pag_identificacion = 'La identificación del pagador es obligatoria';
+      if (req(pagador.telefono)) {
+        e.pag_telefono = 'El teléfono del pagador es obligatorio';
+      } else if ((pagador.telefono ?? '').replace(/\D/g, '').length < 10) {
+        e.pag_telefono = 'Ingresa un teléfono válido (ej. 04121234567)';
+      }
     }
 
     // ── Beneficiario (solo si está habilitado) ────────────────────────────
@@ -299,11 +318,11 @@ export function EmissionStep() {
             setTomador({
               estado : found?.label ?? '',
               cestado: found ? Number(found.code) : undefined,
-              // Limpiar ciudad al cambiar estado
+              // Al cambiar estado se limpia la ciudad para forzar al usuario
+              // a elegir una del nuevo listado.
               ciudad : '',
               cciudad: undefined,
             });
-            setCiudadSearch('');
           }}
           disabled={catalogs.loading}
         >
@@ -315,35 +334,32 @@ export function EmissionStep() {
       </Field>
     ),
     ciudad: (
-      <Field label="Ciudad donde vives *" error={errors.ciudad}>
-        {/* Buscador encima del selector para facilitar la búsqueda entre ~1500 ciudades */}
-        <Input
-          value={ciudadSearch}
-          onChange={(e) => setCiudadSearch(e.target.value)}
-          placeholder="Escribe para filtrar ciudad…"
-          className="mb-1"
-          disabled={catalogs.loading}
-        />
+      <Field
+        label="Ciudad donde vives *"
+        error={errors.ciudad}
+        hint={tomador.cestado ? 'Tip: con el campo enfocado puedes escribir para saltar a la ciudad' : 'Selecciona primero el estado'}
+      >
         <Select
           value={tomador.cciudad ? String(tomador.cciudad) : ''}
           onChange={(e) => {
-            const found = catalogs.ciudades.find((c) => String(c.code) === e.target.value);
+            const found = ciudadesState.ciudades.find((c) => String(c.code) === e.target.value);
             setTomador({
               ciudad : found?.label ?? '',
               cciudad: found ? Number(found.code) : undefined,
             });
           }}
-          disabled={catalogs.loading}
+          disabled={!tomador.cestado || ciudadesState.loading}
         >
-          <option value="">{catalogs.loading ? 'Cargando ciudades…' : '— Seleccionar ciudad —'}</option>
-          {catalogs.ciudades
-            .filter((c) =>
-              !ciudadSearch.trim() ||
-              c.label.toLowerCase().includes(ciudadSearch.toLowerCase()),
-            )
-            .map((c) => (
-              <option key={String(c.code)} value={String(c.code)}>{c.label}</option>
-            ))}
+          <option value="">
+            {!tomador.cestado
+              ? '— Selecciona el estado primero —'
+              : ciudadesState.loading
+                ? 'Cargando ciudades…'
+                : '— Seleccionar ciudad —'}
+          </option>
+          {ciudadesState.ciudades.map((c) => (
+            <option key={String(c.code)} value={String(c.code)}>{c.label}</option>
+          ))}
         </Select>
       </Field>
     ),
@@ -373,6 +389,66 @@ export function EmissionStep() {
               <Fragment key={key}>{tomadorFieldMap[key]}</Fragment>
             ))}
           </div>
+        </SectionCard>
+
+        {/* Pagador */}
+        <SectionCard
+          Icon={Wallet}
+          title="¿Eres quien paga la póliza?"
+          description="Si otra persona pagará por ti, registramos sus datos para asociarlos al pago."
+        >
+          <ToggleSwitch
+            checked={!differentPayer}
+            onChange={(v) => setDifferentPayer(!v)}
+            label="Sí, yo voy a pagar la póliza"
+            description="Usaremos los datos personales que llenaste arriba para asociar el pago."
+          />
+
+          {differentPayer && (
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 animate-fade-in">
+              <Field label="Nombre del pagador *" error={errors.pag_nombre}>
+                <Input
+                  value={pagador.nombre}
+                  onChange={(e) => setPagador({ nombre: onlyLetters(e.target.value) })}
+                  placeholder="Nombre"
+                />
+              </Field>
+              <Field label="Apellido del pagador *" error={errors.pag_apellido}>
+                <Input
+                  value={pagador.apellido}
+                  onChange={(e) => setPagador({ apellido: onlyLetters(e.target.value) })}
+                  placeholder="Apellido"
+                />
+              </Field>
+              <Field label="Cédula o documento *" error={errors.pag_identificacion}>
+                <IdentityInput
+                  tipoDoc={pagador.tipoDoc ?? 'V'}
+                  identificacion={pagador.identificacion}
+                  onTipoDocChange={(v) => setPagador({ tipoDoc: v })}
+                  onIdentificacionChange={(v) => setPagador({ identificacion: v })}
+                />
+              </Field>
+              <Field label="Teléfono del pagador *" error={errors.pag_telefono} hint="Solo dígitos, ej. 04121234567">
+                <Input
+                  value={pagador.telefono ?? ''}
+                  onChange={(e) => setPagador({ telefono: formatTelefono(e.target.value) })}
+                  placeholder="04121234567"
+                  type="tel"
+                  inputMode="numeric"
+                  maxLength={11}
+                />
+              </Field>
+              <Field label="Correo electrónico (opcional)" full>
+                <Input
+                  value={pagador.email ?? ''}
+                  onChange={(e) => setPagador({ email: e.target.value })}
+                  placeholder="correo@ejemplo.com"
+                  type="email"
+                  inputMode="email"
+                />
+              </Field>
+            </div>
+          )}
         </SectionCard>
 
         {/* Asegurado */}

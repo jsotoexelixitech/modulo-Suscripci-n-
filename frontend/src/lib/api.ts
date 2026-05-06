@@ -446,9 +446,14 @@ export function getEstados(): Promise<CatalogItem[]> {
   return _fetchValrep('/valrep/state');
 }
 
-/** Lista completa de ciudades venezolanas con código La Mundial */
-export function getCiudades(): Promise<CatalogItem[]> {
-  return _fetchValrep('/valrep/city');
+/**
+ * Ciudades del estado indicado (cestado = código numérico La Mundial).
+ * Si no se pasa cestado, devuelve todas las ciudades del país.
+ * Cada estado se cachea por separado.
+ */
+export function getCiudades(cestado?: number | null): Promise<CatalogItem[]> {
+  const path = cestado ? `/valrep/city?cestado=${cestado}` : '/valrep/city';
+  return _fetchValrep(path);
 }
 
 /**

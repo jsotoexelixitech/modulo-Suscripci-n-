@@ -44,14 +44,19 @@ router.get('/state', async (_req, res) => {
   }
 });
 
-// GET /api/valrep/city
-router.get('/city', async (_req, res) => {
+// GET /api/valrep/city?cestado=<codigo>
+// Devuelve las ciudades del estado solicitado. Si no se pasa cestado se devuelven todas.
+router.get('/city', async (req, res) => {
+  const cestadoRaw = req.query.cestado ?? req.query.estado ?? '';
+  const cestado = cestadoRaw ? parseInt(String(cestadoRaw), 10) : null;
   try {
-    const data = await proxyPost('/api/v1/valrep/city');
-    // La API devuelve la lista en data.data.state (mismo key que state)
-    const items = data?.data?.state ?? data?.data?.city ?? [];
+    const body = cestado ? { cestado } : {};
+    const data = await proxyPost('/api/v1/valrep/city', body);
+    // La API devuelve la lista en data.data.city (también vista como state en algunas versiones)
+    const items = data?.data?.city ?? data?.data?.state ?? [];
     res.json({
       ok: true,
+      cestado: cestado ?? null,
       items: items.map((c) => ({ code: c.cciudad, label: c.xdescripcion_l })),
     });
   } catch (err) {

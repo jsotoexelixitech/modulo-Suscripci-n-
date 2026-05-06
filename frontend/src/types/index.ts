@@ -63,10 +63,13 @@ export type PersonData = {
   nombre: string;
   apellido: string;
   identificacion: string;
+  tipoDoc?: string;
   fechaNac?: string;
   parentesco?: string;
   licencia?: string;
   relacion?: string;
+  telefono?: string;
+  email?: string;
 };
 
 export interface Plan {
@@ -137,6 +140,10 @@ export interface WizardState {
   tomador: TomadorData;
   sameInsured: boolean;
   asegurado: PersonData;
+  /** True cuando quien rellena el formulario NO es quien va a pagar la póliza. */
+  differentPayer: boolean;
+  /** Datos del pagador alternativo cuando differentPayer = true. */
+  pagador: PersonData;
   hasBeneficiary: boolean;
   beneficiario: PersonData;
   hasDriver: boolean;

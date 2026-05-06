@@ -35,10 +35,13 @@ const defaultPerson = (): PersonData => ({
   nombre: '',
   apellido: '',
   identificacion: '',
+  tipoDoc: 'V',
   fechaNac: '',
   parentesco: '',
   licencia: '',
   relacion: '',
+  telefono: '',
+  email: '',
 });
 
 const defaultVehicle = (): VehicleData => ({
@@ -60,6 +63,8 @@ interface WizardActions {
   setTomador: (data: Partial<TomadorData>) => void;
   setSameInsured: (v: boolean) => void;
   setAsegurado: (data: Partial<PersonData>) => void;
+  setDifferentPayer: (v: boolean) => void;
+  setPagador: (data: Partial<PersonData>) => void;
   setHasBeneficiary: (v: boolean) => void;
   setBeneficiario: (data: Partial<PersonData>) => void;
   setHasDriver: (v: boolean) => void;
@@ -87,6 +92,8 @@ const initialState: WizardState = {
   tomador: defaultTomador(),
   sameInsured: true,
   asegurado: defaultPerson(),
+  differentPayer: false,
+  pagador: defaultPerson(),
   hasBeneficiary: false,
   beneficiario: defaultPerson(),
   hasDriver: false,
@@ -128,6 +135,11 @@ export const useWizardStore = create<WizardState & WizardActions>()((set) => ({
 
   setAsegurado: (data) =>
     set((s) => ({ asegurado: { ...s.asegurado, ...data } })),
+
+  setDifferentPayer: (differentPayer) => set({ differentPayer }),
+
+  setPagador: (data) =>
+    set((s) => ({ pagador: { ...s.pagador, ...data } })),
 
   setHasBeneficiary: (hasBeneficiary) => set({ hasBeneficiary }),
 
