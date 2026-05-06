@@ -438,7 +438,7 @@ export function VehicleStep() {
             )}
           </Field>
 
-          {/* Versión — siempre que haya modelo seleccionado */}
+          {/* Versión + Uso — emparejados en la misma fila (cada uno media columna) */}
           {(vehicle.cmodelo || loadV) && (
             <Field
               label={
@@ -452,7 +452,6 @@ export function VehicleStep() {
                   )}
                 </span> as unknown as string
               }
-              full
             >
               {versiones.length > 0 ? (
                 <Select
@@ -478,33 +477,6 @@ export function VehicleStep() {
             </Field>
           )}
 
-          {/* Confirmación amigable cuando el vehículo está completo */}
-          {codesReady && (
-            <div className="sm:col-span-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-700">
-              <ShieldCheck size={14} className="shrink-0 text-emerald-500" />
-              <span>
-                <strong>{vehicle.marca} {vehicle.modelo}</strong> listo para cotización — selecciona el plan en el siguiente paso.
-              </span>
-            </div>
-          )}
-
-          {/* Color */}
-          <Field label="Color">
-            <div className="relative">
-              <Input
-                value={vehicle.color}
-                onChange={(e) => setVehicle({ color: e.target.value })}
-                placeholder="Plateado"
-                style={{ paddingLeft: '2.25rem' }}
-              />
-              <span
-                className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full border border-slate-300 shadow-inner pointer-events-none"
-                style={{ background: getColorSwatch(vehicle.color) }}
-                aria-hidden
-              />
-            </div>
-          </Field>
-
           {/* Uso — categorías dinámicas según la versión seleccionada */}
           <Field
             label={
@@ -521,7 +493,7 @@ export function VehicleStep() {
                 )}
               </span> as unknown as string
             }
-            hint={!vehicle.cversion ? 'Selecciona la versión del vehículo para ver las categorías disponibles.' : undefined}
+            hint={!vehicle.cversion ? 'Selecciona la versión del vehículo para ver las categorías.' : undefined}
           >
             {!vehicle.cversion ? (
               <div className="w-full px-3.5 py-2.5 border border-dashed border-slate-300 rounded-xl bg-slate-50 text-xs text-slate-400 flex items-center gap-2">
@@ -562,8 +534,35 @@ export function VehicleStep() {
             )}
           </Field>
 
+          {/* Confirmación amigable cuando el vehículo está completo */}
+          {codesReady && (
+            <div className="sm:col-span-2 flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-700">
+              <ShieldCheck size={14} className="shrink-0 text-emerald-500" />
+              <span>
+                <strong>{vehicle.marca} {vehicle.modelo}</strong> listo para cotización — selecciona el plan en el siguiente paso.
+              </span>
+            </div>
+          )}
+
+          {/* Color */}
+          <Field label="Color">
+            <div className="relative">
+              <Input
+                value={vehicle.color}
+                onChange={(e) => setVehicle({ color: e.target.value })}
+                placeholder="Plateado"
+                style={{ paddingLeft: '2.25rem' }}
+              />
+              <span
+                className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full border border-slate-300 shadow-inner pointer-events-none"
+                style={{ background: getColorSwatch(vehicle.color) }}
+                aria-hidden
+              />
+            </div>
+          </Field>
+
           {/* Serial */}
-          <Field label="Serial del vehículo (VIN)" full hint="Son los 17 caracteres que aparecen en el documento del vehículo">
+          <Field label="Serial del vehículo (VIN)" hint="Son los 17 caracteres que aparecen en el documento del vehículo">
             <Input
               value={vehicle.serial}
               onChange={(e) => setVehicle({ serial: e.target.value.toUpperCase() })}
