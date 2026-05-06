@@ -102,6 +102,7 @@ export function PaymentStep() {
   const [otpResult,    setOtpResult]    = useState<SypagoOtpConfirmResponse | null>(null);
   // otpSubmitted: true después del primer intento de "Solicitar OTP"
   const [otpSubmitted, setOtpSubmitted] = useState(false);
+  const [otpCooldown,  setOtpCooldown]  = useState(0); // segundos restantes para reenvío
 
   // Resetear estados al cambiar método de pago
   useEffect(() => {
@@ -113,7 +114,15 @@ export function PaymentStep() {
     setOtpResult(null);
     setOtpCode('');
     setOtpSubmitted(false);
+    setOtpCooldown(0);
   }, [paymentMethod]);
+
+  // Countdown para reenvío de OTP
+  useEffect(() => {
+    if (otpCooldown <= 0) return;
+    const t = window.setTimeout(() => setOtpCooldown((s) => s - 1), 1000);
+    return () => window.clearTimeout(t);
+  }, [otpCooldown]);
 
   useEffect(() => {
     if (paymentMethod === 'card' || paymentMethod === 'transfer') setPaymentMethod('mobile');
@@ -222,7 +231,10 @@ export function PaymentStep() {
       setOtpStep('error');
     }
 
-    if (succeeded) setOtpStep('awaiting_otp');
+    if (succeeded) {
+      setOtpStep('awaiting_otp');
+      setOtpCooldown(60); // 60 s antes de poder reenviar
+    }
   }
 
   async function handleOtpConfirm() {
@@ -715,13 +727,36 @@ export function PaymentStep() {
                   </p>
                 )}
 
+                {/* Reenviar OTP con countdown */}
+                <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <div className="text-xs text-slate-500">
+                    {otpCooldown > 0
+                      ? <>¿No recibiste el código? Puedes reenviarlo en <span className="font-bold text-slate-700 tabular-nums">{otpCooldown}s</span></>
+                      : <>¿No recibiste el código?</>
+                    }
+                  </div>
+                  <button
+                    type="button"
+                    disabled={otpCooldown > 0 || otpStep === 'confirming'}
+                    onClick={async () => {
+                      setOtpCode('');
+                      await handleOtpRequest();
+                    }}
+                    className="ml-3 shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all
+                      disabled:opacity-40 disabled:cursor-not-allowed
+                      enabled:border-indigo-300 enabled:text-indigo-600 enabled:hover:bg-indigo-50"
+                  >
+                    <RefreshCw size={12} /> Reenviar código
+                  </button>
+                </div>
+
                 <div className="flex flex-col-reverse sm:flex-row gap-3">
                   <button
                     type="button"
-                    onClick={() => { setOtpStep('form'); setOtpCode(''); setOtpSubmitted(false); }}
+                    onClick={() => { setOtpStep('form'); setOtpCode(''); setOtpSubmitted(false); setOtpCooldown(0); }}
                     className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-5 py-3 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:border-slate-300 transition-colors"
                   >
-                    <RefreshCw size={14} /> Reiniciar
+                    <RefreshCw size={14} /> Cambiar datos
                   </button>
                   <button
                     type="button"
