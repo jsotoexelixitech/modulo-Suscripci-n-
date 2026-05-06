@@ -3,6 +3,7 @@ import { useWizardStore } from '../../store/wizardStore';
 import { Field, Input, Select, Textarea } from '../../components/ui/FormField';
 import { IdentityInput } from '../../components/ui/IdentityInput';
 import { ToggleSwitch } from '../../components/ui/ToggleSwitch';
+import { SearchSelect } from '../../components/ui/SearchSelect';
 import { useCatalogs, useCiudades } from '../../hooks/useCatalogs';
 import { User, UserPlus, Heart, Wallet } from 'lucide-react';
 
@@ -275,92 +276,79 @@ export function EmissionStep() {
     ),
     sexo: (
       <Field label="Sexo *" error={errors.sexo}>
-        <Select value={tomador.sexo} onChange={(e) => setTomador({ sexo: e.target.value })}>
-          <option value="">— Seleccionar —</option>
-          {catalogs.sexos.length > 0
-            ? catalogs.sexos.map((s) => (
-                <option key={String(s.code)} value={String(s.label)}>{s.label}</option>
-              ))
-            : (
-              <>
-                <option value="Femenino">Femenino</option>
-                <option value="Masculino">Masculino</option>
-              </>
-            )}
-        </Select>
+        <SearchSelect
+          value={tomador.sexo}
+          options={
+            catalogs.sexos.length > 0
+              ? catalogs.sexos.map((s) => ({ value: String(s.label), label: s.label }))
+              : [
+                  { value: 'Femenino',  label: 'Femenino'  },
+                  { value: 'Masculino', label: 'Masculino' },
+                ]
+          }
+          onChange={(value) => setTomador({ sexo: value })}
+          placeholder="— Seleccionar —"
+          loading={catalogs.loading}
+        />
       </Field>
     ),
     estadoCivil: (
       <Field label="Estado civil">
-        <Select value={tomador.estadoCivil} onChange={(e) => setTomador({ estadoCivil: e.target.value })}>
-          <option value="">— Seleccionar —</option>
-          {catalogs.estadosCivil.length > 0
-            ? catalogs.estadosCivil.map((s) => (
-                <option key={String(s.code)} value={String(s.label)}>{s.label}</option>
-              ))
-            : (
-              <>
-                <option value="Soltero(a)">Soltero(a)</option>
-                <option value="Casado(a)">Casado(a)</option>
-                <option value="Divorciado(a)">Divorciado(a)</option>
-                <option value="Viudo(a)">Viudo(a)</option>
-              </>
-            )}
-        </Select>
+        <SearchSelect
+          value={tomador.estadoCivil}
+          options={
+            catalogs.estadosCivil.length > 0
+              ? catalogs.estadosCivil.map((s) => ({ value: String(s.label), label: s.label }))
+              : [
+                  { value: 'Soltero(a)',     label: 'Soltero(a)'     },
+                  { value: 'Casado(a)',      label: 'Casado(a)'      },
+                  { value: 'Divorciado(a)',  label: 'Divorciado(a)'  },
+                  { value: 'Viudo(a)',       label: 'Viudo(a)'       },
+                ]
+          }
+          onChange={(value) => setTomador({ estadoCivil: value })}
+          placeholder="— Seleccionar —"
+          loading={catalogs.loading}
+        />
       </Field>
     ),
     estado: (
       <Field label="Estado donde vives *" error={errors.estado}>
-        <Select
-          value={tomador.cestado ? String(tomador.cestado) : ''}
-          onChange={(e) => {
-            const found = catalogs.estados.find((s) => String(s.code) === e.target.value);
+        <SearchSelect
+          value={tomador.cestado}
+          options={catalogs.estados.map((s) => ({ value: String(s.code), label: s.label }))}
+          onChange={(code, label) => {
             setTomador({
-              estado : found?.label ?? '',
-              cestado: found ? Number(found.code) : undefined,
-              // Al cambiar estado se limpia la ciudad para forzar al usuario
-              // a elegir una del nuevo listado.
+              estado : label,
+              cestado: code ? Number(code) : undefined,
               ciudad : '',
               cciudad: undefined,
             });
           }}
-          disabled={catalogs.loading}
-        >
-          <option value="">{catalogs.loading ? 'Cargando estados…' : '— Seleccionar estado —'}</option>
-          {catalogs.estados.map((s) => (
-            <option key={String(s.code)} value={String(s.code)}>{s.label}</option>
-          ))}
-        </Select>
+          placeholder="Escribe para buscar tu estado…"
+          loading={catalogs.loading}
+        />
       </Field>
     ),
     ciudad: (
       <Field
         label="Ciudad donde vives *"
         error={errors.ciudad}
-        hint={tomador.cestado ? 'Tip: con el campo enfocado puedes escribir para saltar a la ciudad' : 'Selecciona primero el estado'}
+        hint={tomador.cestado ? 'Escribe para filtrar la ciudad' : 'Selecciona primero el estado'}
       >
-        <Select
-          value={tomador.cciudad ? String(tomador.cciudad) : ''}
-          onChange={(e) => {
-            const found = ciudadesState.ciudades.find((c) => String(c.code) === e.target.value);
+        <SearchSelect
+          value={tomador.cciudad}
+          options={ciudadesState.ciudades.map((c) => ({ value: String(c.code), label: c.label }))}
+          onChange={(code, label) => {
             setTomador({
-              ciudad : found?.label ?? '',
-              cciudad: found ? Number(found.code) : undefined,
+              ciudad : label,
+              cciudad: code ? Number(code) : undefined,
             });
           }}
-          disabled={!tomador.cestado || ciudadesState.loading}
-        >
-          <option value="">
-            {!tomador.cestado
-              ? '— Selecciona el estado primero —'
-              : ciudadesState.loading
-                ? 'Cargando ciudades…'
-                : '— Seleccionar ciudad —'}
-          </option>
-          {ciudadesState.ciudades.map((c) => (
-            <option key={String(c.code)} value={String(c.code)}>{c.label}</option>
-          ))}
-        </Select>
+          placeholder={tomador.cestado ? 'Escribe para buscar la ciudad…' : 'Selecciona primero el estado'}
+          disabled={!tomador.cestado}
+          loading={ciudadesState.loading}
+        />
       </Field>
     ),
     direccion: (
