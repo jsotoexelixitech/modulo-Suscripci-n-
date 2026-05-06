@@ -78,6 +78,8 @@ export function vehicleSignature(v: {
   modelo: string;
   año: string;
   uso: string;
+  cversion?: string;
+  ccategoria_uso?: number | string;
 }): string {
-  return `${v.placa}|${v.marca}|${v.modelo}|${v.año}|${v.uso}`.toUpperCase();
+  return `${v.placa}|${v.marca}|${v.modelo}|${v.año}|${v.uso}|${v.cversion ?? ''}|${v.ccategoria_uso ?? ''}`.toUpperCase();
 }

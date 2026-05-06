@@ -286,6 +286,38 @@ async function getInmaVersiones(fano, cmarca, cmodelo) {
   return inmaPost('/version', { fano, cmarca, cmodelo });
 }
 
+/**
+ * Categorías de uso aplicables a la versión seleccionada.
+ * Endpoint: POST /external/getCategoriasUso
+ *
+ * @param {{ fano:number, cmarca:string, cmodelo:string, cversion:string }} input
+ * @returns {Promise<Array<{ ccategoria_uso:number, xcategoria_uso:string }>>}
+ */
+async function getCategoriasUso({ fano, cmarca, cmodelo, cversion }) {
+  const client = getClient();
+  const endpoint = '/getCategoriasUso';
+  logRequest(endpoint, { fano, cmarca, cmodelo, cversion });
+
+  const t0 = Date.now();
+  let response;
+  try {
+    response = await client.post(endpoint, { fano, cmarca, cmodelo, cversion });
+  } catch (netErr) {
+    const err = new Error(`Red no disponible llamando ${endpoint}: ${netErr.message}`);
+    err.code = 'LAMUNDIAL_NETWORK';
+    err.endpoint = endpoint;
+    err.cause = netErr;
+    throw err;
+  }
+  logResponse(endpoint, response.status, Date.now() - t0, response.data);
+
+  if (response.status >= 200 && response.status < 300 && response.data?.status === true) {
+    const list = response.data.result?.categorias_uso ?? [];
+    return Array.isArray(list) ? list : [];
+  }
+  throw buildLaMundialError(response.status, response.data, { endpoint });
+}
+
 module.exports = {
   getCotizacionAuto,
   createEmissionAuto,
@@ -293,6 +325,7 @@ module.exports = {
   getInmaMarcas,
   getInmaModelos,
   getInmaVersiones,
+  getCategoriasUso,
   // Helpers expuestos para tests / debug:
   _internal: { getClient, getConfig, extractErrorMessage, buildLaMundialError, PATH_PREFIX, INMA_PREFIX },
 };

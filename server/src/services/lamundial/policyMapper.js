@@ -136,7 +136,10 @@ function buildQuoteRequest(state, overrides = {}) {
   const v = state.vehicle || {};
   const codes = resolveCodesFromVehicle(v);
   const ano = parseInt(String(v.año || v.ano || ''), 10) || new Date().getFullYear();
-  const ccategoria_uso = resolveUsageCategory(v.uso);
+  // Prioridad: código real del selector dinámico (getCategoriasUso) → fallback al mapa estático por texto
+  const ccategoria_uso = (v.ccategoria_uso != null && v.ccategoria_uso !== '')
+    ? parseInt(v.ccategoria_uso, 10)
+    : resolveUsageCategory(v.uso);
   const cplan = overrides.plan || process.env.LAMUNDIAL_PLAN_DEFAULT || 'RCVBAS';
 
   return {
@@ -239,7 +242,9 @@ function buildEmissionRequest(state, cotizacion, overrides = {}) {
     placa: upperPlate(v.placa),
     serial_carroceria: cleanString(v.serial),
     serial_motor: '',
-    ccategoria_uso: resolveUsageCategory(v.uso),
+    ccategoria_uso: (v.ccategoria_uso != null && v.ccategoria_uso !== '')
+      ? parseInt(v.ccategoria_uso, 10)
+      : resolveUsageCategory(v.uso),
     ntoneladas: 60,
 
     // Datos economicos (vienen de cotizacion; se envian como Number)

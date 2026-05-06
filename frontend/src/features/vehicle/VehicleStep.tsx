@@ -8,7 +8,7 @@ import {
   Loader2, AlertTriangle,
 } from 'lucide-react';
 import { toast } from '../../store/toastStore';
-import { catalogoApi, type InmaMarca, type InmaModelo, type InmaVersion } from '../../lib/api';
+import { catalogoApi, type InmaMarca, type InmaModelo, type InmaVersion, type CategoriaUso } from '../../lib/api';
 
 const COLOR_SWATCHES: Record<string, string> = {
   blanco: '#F8FAFC', negro: '#0F172A', gris: '#94A3B8', plateado: '#CBD5E1',
@@ -49,39 +49,50 @@ function useInmaCatalog() {
   const [marcas,    setMarcas]    = useState<InmaMarca[]>([]);
   const [modelos,   setModelos]   = useState<InmaModelo[]>([]);
   const [versiones, setVersiones] = useState<InmaVersion[]>([]);
+  const [categoriasUso, setCategoriasUso] = useState<CategoriaUso[]>([]);
   const [loadM,  setLoadM]  = useState(false);
   const [loadMo, setLoadMo] = useState(false);
   const [loadV,  setLoadV]  = useState(false);
+  const [loadCu, setLoadCu] = useState(false);
 
   const loadMarcas = useCallback(async (y: number) => {
     if (!y || y < 1990) return;
-    setLoadM(true); setMarcas([]); setModelos([]); setVersiones([]);
+    setLoadM(true); setMarcas([]); setModelos([]); setVersiones([]); setCategoriasUso([]);
     try { setMarcas((await catalogoApi.marcas(y)).data.data ?? []); } catch { /* silencioso */ }
     finally { setLoadM(false); }
   }, []);
 
   const loadModelos = useCallback(async (y: number, cmarca: string) => {
     if (!y || !cmarca) return;
-    setLoadMo(true); setModelos([]); setVersiones([]);
+    setLoadMo(true); setModelos([]); setVersiones([]); setCategoriasUso([]);
     try { setModelos((await catalogoApi.modelos(y, cmarca)).data.data ?? []); } catch { }
     finally { setLoadMo(false); }
   }, []);
 
   const loadVersiones = useCallback(async (y: number, cmarca: string, cmodelo: string) => {
     if (!y || !cmarca || !cmodelo) return;
-    setLoadV(true); setVersiones([]);
+    setLoadV(true); setVersiones([]); setCategoriasUso([]);
     try { setVersiones((await catalogoApi.versiones(y, cmarca, cmodelo)).data.data ?? []); } catch { }
     finally { setLoadV(false); }
   }, []);
 
-  const resetModelos  = useCallback(() => { setModelos([]);   setVersiones([]); }, []);
-  const resetVersiones = useCallback(() => setVersiones([]), []);
+  const loadCategoriasUso = useCallback(async (y: number, cmarca: string, cmodelo: string, cversion: string) => {
+    if (!y || !cmarca || !cmodelo || !cversion) return;
+    setLoadCu(true); setCategoriasUso([]);
+    try { setCategoriasUso((await catalogoApi.categoriasUso(y, cmarca, cmodelo, cversion)).data.data ?? []); }
+    catch { /* fallback: el formulario muestra opciones genéricas si la lista queda vacía */ }
+    finally { setLoadCu(false); }
+  }, []);
+
+  const resetModelos  = useCallback(() => { setModelos([]); setVersiones([]); setCategoriasUso([]); }, []);
+  const resetVersiones = useCallback(() => { setVersiones([]); setCategoriasUso([]); }, []);
+  const resetCategoriasUso = useCallback(() => setCategoriasUso([]), []);
 
   return {
-    marcas, modelos, versiones,
-    loadM, loadMo, loadV,
-    loadMarcas, loadModelos, loadVersiones,
-    resetModelos, resetVersiones,
+    marcas, modelos, versiones, categoriasUso,
+    loadM, loadMo, loadV, loadCu,
+    loadMarcas, loadModelos, loadVersiones, loadCategoriasUso,
+    resetModelos, resetVersiones, resetCategoriasUso,
   };
 }
 
@@ -105,9 +116,9 @@ export function VehicleStep() {
   const autoSelectedModelo = useRef(false);
 
   const {
-    marcas, modelos, versiones,
-    loadM, loadMo, loadV,
-    loadMarcas, loadModelos, loadVersiones,
+    marcas, modelos, versiones, categoriasUso,
+    loadM, loadMo, loadV, loadCu,
+    loadMarcas, loadModelos, loadVersiones, loadCategoriasUso,
     resetModelos, resetVersiones,
   } = useInmaCatalog();
 
@@ -157,7 +168,7 @@ export function VehicleStep() {
     const match = findBestMatch(marcas, ocrCert.marca, 'xmarca' as keyof InmaMarca);
     if (match) {
       autoSelectedMarca.current = true;
-      setVehicle({ cmarca: match.cmarca, marca: match.xmarca, cmodelo: '', modelo: '', cversion: '' });
+      setVehicle({ cmarca: match.cmarca, marca: match.xmarca, cmodelo: '', modelo: '', cversion: '', ccategoria_uso: undefined, xcategoria_uso: '' });
     }
   // Solo cuando marcas cambia
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -182,7 +193,7 @@ export function VehicleStep() {
     const match = findBestMatch(modelos, ocrCert.modelo, 'xmodelo' as keyof InmaModelo);
     if (match) {
       autoSelectedModelo.current = true;
-      setVehicle({ cmodelo: match.cmodelo, modelo: match.xmodelo, cversion: '' });
+      setVehicle({ cmodelo: match.cmodelo, modelo: match.xmodelo, cversion: '', ccategoria_uso: undefined, xcategoria_uso: '' });
     } else {
       // Fallback: informar que no se encontró el modelo exacto
       toast.warning(
@@ -200,6 +211,26 @@ export function VehicleStep() {
     if (!vehicle.cmarca || !vehicle.cmodelo || !y) return;
     loadVersiones(y, vehicle.cmarca, vehicle.cmodelo);
   }, [vehicle.cmodelo, vehicle.cmarca, vehicle.año, loadVersiones]);
+
+  // ── Cuando cambia cversion: cargar categorías de uso (depende de la versión)
+  useEffect(() => {
+    const y = parseInt(vehicle.año, 10);
+    if (!vehicle.cmarca || !vehicle.cmodelo || !vehicle.cversion || !y) return;
+    loadCategoriasUso(y, vehicle.cmarca, vehicle.cmodelo, vehicle.cversion);
+  }, [vehicle.cversion, vehicle.cmodelo, vehicle.cmarca, vehicle.año, loadCategoriasUso]);
+
+  // ── Auto-seleccionar categoría única cuando solo hay una opción ───────────
+  useEffect(() => {
+    if (categoriasUso.length === 1 && !vehicle.ccategoria_uso) {
+      const c = categoriasUso[0];
+      setVehicle({
+        ccategoria_uso: c.ccategoria_uso,
+        xcategoria_uso: c.xcategoria_uso,
+        uso: c.xcategoria_uso,
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoriasUso]);
 
   // ── Validación ────────────────────────────────────────────────────────────
   const validate = () => {
@@ -298,7 +329,7 @@ export function VehicleStep() {
               <Select
                 value={vehicle.año}
                 onChange={(e) => {
-                  setVehicle({ año: e.target.value, cmarca: '', marca: '', cmodelo: '', modelo: '', cversion: '' });
+                  setVehicle({ año: e.target.value, cmarca: '', marca: '', cmodelo: '', modelo: '', cversion: '', ccategoria_uso: undefined, xcategoria_uso: '' });
                 }}
               >
                 <option value="">— Selecciona año —</option>
@@ -333,7 +364,7 @@ export function VehicleStep() {
                   const xmarca = marcas.find(m => m.cmarca === cmarca)?.xmarca ?? '';
                   autoSelectedMarca.current = true;
                   autoSelectedModelo.current = false;
-                  setVehicle({ cmarca, marca: xmarca, cmodelo: '', modelo: '', cversion: '' });
+                  setVehicle({ cmarca, marca: xmarca, cmodelo: '', modelo: '', cversion: '', ccategoria_uso: undefined, xcategoria_uso: '' });
                 }}
               >
                 <option value="">— Selecciona marca —</option>
@@ -379,7 +410,7 @@ export function VehicleStep() {
                   const cmodelo = e.target.value;
                   const xmodelo = modelos.find(m => m.cmodelo === cmodelo)?.xmodelo ?? '';
                   autoSelectedModelo.current = true;
-                  setVehicle({ cmodelo, modelo: xmodelo, cversion: '' });
+                  setVehicle({ cmodelo, modelo: xmodelo, cversion: '', ccategoria_uso: undefined, xcategoria_uso: '' });
                 }}
               >
                 <option value="">— Selecciona modelo —</option>
@@ -426,7 +457,12 @@ export function VehicleStep() {
               {versiones.length > 0 ? (
                 <Select
                   value={vehicle.cversion ?? ''}
-                  onChange={(e) => setVehicle({ cversion: e.target.value })}
+                  onChange={(e) => setVehicle({
+                    cversion: e.target.value,
+                    // Reset categoría de uso para forzar al usuario a elegir una válida para esta versión
+                    ccategoria_uso: undefined,
+                    xcategoria_uso: '',
+                  })}
                   className={!vehicle.cversion ? 'border-violet-300 focus:border-violet-500 ring-2 ring-violet-100' : ''}
                 >
                   <option value="">— Selecciona la versión —</option>
@@ -469,14 +505,61 @@ export function VehicleStep() {
             </div>
           </Field>
 
-          {/* Uso */}
-          <Field label="¿Para qué usas el vehículo?">
-            <Select value={vehicle.uso} onChange={(e) => setVehicle({ uso: e.target.value })}>
-              <option value="Particular">Uso personal / familiar</option>
-              <option value="Comercial">Negocio o empresa</option>
-              <option value="Carga">Carga y transporte</option>
-              <option value="Transporte público">Transporte de pasajeros</option>
-            </Select>
+          {/* Uso — categorías dinámicas según la versión seleccionada */}
+          <Field
+            label={
+              <span className="flex items-center gap-1.5">
+                ¿Para qué usas el vehículo?
+                {loadCu && <Loader2 size={11} className="animate-spin text-indigo-400" />}
+                {vehicle.ccategoria_uso != null && vehicle.ccategoria_uso !== '' && !loadCu && (
+                  <span className="text-[0.6rem] text-emerald-600 font-bold bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full">✓</span>
+                )}
+                {!vehicle.cversion && (
+                  <span className="text-[0.6rem] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-full">
+                    elige versión
+                  </span>
+                )}
+              </span> as unknown as string
+            }
+            hint={!vehicle.cversion ? 'Selecciona la versión del vehículo para ver las categorías disponibles.' : undefined}
+          >
+            {!vehicle.cversion ? (
+              <div className="w-full px-3.5 py-2.5 border border-dashed border-slate-300 rounded-xl bg-slate-50 text-xs text-slate-400 flex items-center gap-2">
+                <AlertTriangle size={13} className="shrink-0 text-amber-400" />
+                Selecciona la versión primero
+              </div>
+            ) : loadCu ? (
+              <div className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl bg-slate-50 text-sm text-slate-400 flex items-center gap-2">
+                <Loader2 size={14} className="animate-spin shrink-0" /> Cargando categorías…
+              </div>
+            ) : categoriasUso.length > 0 ? (
+              <Select
+                value={vehicle.ccategoria_uso != null ? String(vehicle.ccategoria_uso) : ''}
+                onChange={(e) => {
+                  const code = e.target.value;
+                  const match = categoriasUso.find(c => String(c.ccategoria_uso) === code);
+                  setVehicle({
+                    ccategoria_uso: match ? match.ccategoria_uso : undefined,
+                    xcategoria_uso: match?.xcategoria_uso ?? '',
+                    // Mantenemos `uso` (texto) sincronizado para retrocompatibilidad de UI/store
+                    uso: match?.xcategoria_uso ?? vehicle.uso,
+                  });
+                }}
+                className={vehicle.ccategoria_uso == null ? 'border-violet-300 focus:border-violet-500 ring-2 ring-violet-100' : ''}
+              >
+                <option value="">— Selecciona la categoría de uso —</option>
+                {categoriasUso.map(c => (
+                  <option key={c.ccategoria_uso} value={String(c.ccategoria_uso)}>{c.xcategoria_uso}</option>
+                ))}
+              </Select>
+            ) : (
+              <Select value={vehicle.uso} onChange={(e) => setVehicle({ uso: e.target.value })}>
+                <option value="Particular">Uso personal / familiar</option>
+                <option value="Comercial">Negocio o empresa</option>
+                <option value="Carga">Carga y transporte</option>
+                <option value="Transporte público">Transporte de pasajeros</option>
+              </Select>
+            )}
           </Field>
 
           {/* Serial */}

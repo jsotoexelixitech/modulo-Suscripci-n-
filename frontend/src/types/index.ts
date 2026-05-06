@@ -101,6 +101,10 @@ export interface VehicleData {
   cmodelo?: string;
   /** Código INMA de versión (ej. "05") — set al elegir en selector de catálogo */
   cversion?: string;
+  /** Código La Mundial de categoría de uso (numérico) — set por getCategoriasUso al elegir versión */
+  ccategoria_uso?: number | string;
+  /** Etiqueta legible de la categoría de uso (ej. "Auto particular") — para display */
+  xcategoria_uso?: string;
 }
 
 export interface PolicyQuote {

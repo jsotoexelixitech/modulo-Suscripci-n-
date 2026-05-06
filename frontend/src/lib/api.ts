@@ -395,6 +395,7 @@ export async function sypagoGetStatus(transactionId: string): Promise<SypagoTran
 export interface InmaMarca   { cmarca: string; xmarca: string; }
 export interface InmaModelo  { cmodelo: string; xmodelo: string; }
 export interface InmaVersion { cversion: string; xversion: string; }
+export interface CategoriaUso { ccategoria_uso: number; xcategoria_uso: string; }
 
 export interface ResolverResult {
   success: boolean;
@@ -416,6 +417,11 @@ export const catalogoApi = {
     api.get<{ success: boolean; data: InmaModelo[] }>(`/catalogo/modelos?fano=${fano}&cmarca=${cmarca}`),
   versiones: (fano: number, cmarca: string, cmodelo: string) =>
     api.get<{ success: boolean; data: InmaVersion[] }>(`/catalogo/versiones?fano=${fano}&cmarca=${cmarca}&cmodelo=${cmodelo}`),
+  /** Categorías de uso aplicables a la versión (depende de la versión seleccionada). */
+  categoriasUso: (fano: number, cmarca: string, cmodelo: string, cversion: string) =>
+    api.get<{ success: boolean; data: CategoriaUso[] }>(
+      `/catalogo/categorias-uso?fano=${fano}&cmarca=${cmarca}&cmodelo=${cmodelo}&cversion=${cversion}`,
+    ),
   /** Resuelve texto libre (de OCR) → cmarca + cmodelo + versiones en una sola llamada */
   resolver: (fano: number, marca: string, modelo: string) =>
     api.get<ResolverResult>(`/catalogo/resolver?fano=${fano}&marca=${encodeURIComponent(marca)}&modelo=${encodeURIComponent(modelo)}`),

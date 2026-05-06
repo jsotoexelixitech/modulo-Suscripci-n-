@@ -46,6 +46,7 @@ const { validateDocument, runOcr, VALID_DOC_TYPES } = require('../services/docum
 const policyService = require('../services/lamundial/policyService');
 const {
   getInmaAnios, getInmaMarcas, getInmaModelos, getInmaVersiones,
+  getCategoriasUso,
 } = require('../services/lamundial/lamundialClient');
 
 const router = express.Router();
@@ -224,6 +225,33 @@ router.get('/catalogo/versiones', async (req, res) => {
     const data = await getInmaVersiones(fano, cmarca, cmodelo);
     return res.json({ success: true, data });
   } catch (err) {
+    return res.status(502).json({ success: false, message: err.message });
+  }
+});
+
+/**
+ * GET /api/catalogo/categorias-uso?fano=2020&cmarca=074&cmodelo=005&cversion=03
+ * Devuelve [{ ccategoria_uso, xcategoria_uso }] aplicables a la versión.
+ *
+ * La categoría depende de la versión seleccionada (cada versión tiene un set
+ * propio de categorías de uso permitidas según su tipo de vehículo).
+ */
+router.get('/catalogo/categorias-uso', async (req, res) => {
+  const fano     = parseInt(req.query.fano, 10);
+  const cmarca   = req.query.cmarca;
+  const cmodelo  = req.query.cmodelo;
+  const cversion = req.query.cversion;
+  if (!fano || !cmarca || !cmodelo || !cversion) {
+    return res.status(400).json({
+      success: false,
+      message: 'fano, cmarca, cmodelo y cversion son requeridos',
+    });
+  }
+  try {
+    const data = await getCategoriasUso({ fano, cmarca, cmodelo, cversion });
+    return res.json({ success: true, data });
+  } catch (err) {
+    console.error('[catalogo/categorias-uso]', err.message);
     return res.status(502).json({ success: false, message: err.message });
   }
 });
