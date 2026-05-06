@@ -15,7 +15,9 @@ const path = require('path');
 
 const PORT = parseInt(process.env.PORT, 10) || 3001;
 const PUBLIC_WEB_PORT = parseInt(process.env.PUBLIC_WEB_PORT, 10) || 4173;
-const PM2_INSTANCES = process.env.PM2_INSTANCES || 'max';
+// 'max' colapsa servidores con pocos recursos — se limita a 2 instancias por defecto.
+// Para escalar: PM2_INSTANCES=4 pm2 start ecosystem.config.js
+const PM2_INSTANCES = process.env.PM2_INSTANCES || 2;
 
 module.exports = {
   apps: [
