@@ -1,0 +1,31 @@
+# Normalización de line endings entre Windows (CRLF) y Linux (LF).
+# Sin esto, archivos editados en Windows aparecen como "modificados" al
+# hacer git pull en Linux aunque nadie los haya tocado en el servidor.
+
+# Texto en general: usa el line ending del SO al hacer checkout, LF al hacer commit.
+* text=auto eol=lf
+
+# Archivos que SIEMPRE deben ser LF (scripts shell, configs Linux, dotfiles).
+*.sh           text eol=lf
+*.bash         text eol=lf
+Dockerfile     text eol=lf
+.env*          text eol=lf
+.gitignore     text eol=lf
+.gitattributes text eol=lf
+
+# Archivos que DEBEN ser CRLF (scripts PowerShell, batch).
+*.ps1   text eol=crlf
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+
+# Binarios — git no debe tocarlos.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.pdf   binary
+*.zip   binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
