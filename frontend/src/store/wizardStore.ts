@@ -46,6 +46,7 @@ const defaultPerson = (): PersonData => ({
 
 const defaultVehicle = (): VehicleData => ({
   placa: '',
+  tipoPlaca: 'nacional',
   marca: '',
   modelo: '',
   año: '',
@@ -194,3 +195,14 @@ export const useWizardStore = create<WizardState & WizardActions>()((set) => ({
 
   reset: () => set(initialState),
 }));
+
+// Exposición controlada al objeto global para tests E2E (Playwright).
+// Solo se activa cuando el frontend corre en modo desarrollo (vite dev) o
+// cuando explícitamente se setea VITE_E2E_EXPOSE_STORE=1 en el build.
+// En producción NO se expone para evitar manipulación externa del estado.
+if (
+  typeof window !== 'undefined' &&
+  (import.meta.env?.DEV || import.meta.env?.VITE_E2E_EXPOSE_STORE === '1')
+) {
+  (window as unknown as Record<string, unknown>).__wizardStore = useWizardStore;
+}

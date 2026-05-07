@@ -8,6 +8,7 @@ import {
   Loader2, AlertTriangle,
 } from 'lucide-react';
 import { toast } from '../../store/toastStore';
+import { cn } from '../../lib/utils';
 import { catalogoApi, type InmaMarca, type InmaModelo, type InmaVersion, type CategoriaUso } from '../../lib/api';
 
 const COLOR_SWATCHES: Record<string, string> = {
@@ -293,16 +294,36 @@ export function VehicleStep() {
             {hasOcrCodes && !verified && (
               <button
                 type="button"
-                onClick={() => { setVerified(true); toast.success('Datos confirmados', '', 2000); }}
+                onClick={() => {
+                  setVerified(true);
+                  toast.success(
+                    'Datos confirmados',
+                    'Marca, modelo y año quedan bloqueados. Pulsa "Editar" si necesitas cambiarlos.',
+                    3500,
+                  );
+                }}
                 className="self-start sm:self-auto flex-shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/95 hover:bg-white text-indigo-700 text-xs font-bold shadow-[0_6px_16px_rgba(0,0,0,0.15)] transition-all active:scale-95"
               >
                 <ShieldCheck size={14} /> Confirmar datos
               </button>
             )}
             {verified && (
-              <span className="self-start sm:self-auto flex-shrink-0 inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-400/95 text-emerald-950 text-xs font-bold ring-1 ring-emerald-300">
-                <ShieldCheck size={14} /> Verificado
-              </span>
+              <div className="self-start sm:self-auto flex-shrink-0 flex items-center gap-2">
+                <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-400/95 text-emerald-950 text-xs font-bold ring-1 ring-emerald-300">
+                  <ShieldCheck size={14} /> Verificado
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setVerified(false);
+                    toast.info('Datos desbloqueados', 'Ya puedes modificar marca, modelo y año.', 2500);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white text-xs font-semibold ring-1 ring-white/30 transition-all active:scale-95"
+                  title="Desbloquear y editar"
+                >
+                  Editar
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -312,14 +333,47 @@ export function VehicleStep() {
       <SectionCard Icon={Car} title="¿Cuál es tu vehículo?" description="Cuéntanos sobre el vehículo que deseas asegurar">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
-          {/* Placa */}
-          <Field label="Placa" error={errors.placa}>
+          {/* Placa con selector de tipo (Nacional / Extranjera) */}
+          <Field
+            label={
+              <span className="flex items-center justify-between gap-2 w-full">
+                <span>Placa</span>
+                <span className="inline-flex items-center gap-0 rounded-lg bg-slate-100 p-0.5 text-[0.65rem] font-bold border border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => setVehicle({ tipoPlaca: 'nacional' })}
+                    className={cn(
+                      'px-2.5 py-1 rounded-md transition-all',
+                      vehicle.tipoPlaca === 'nacional'
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-slate-500 hover:text-slate-700',
+                    )}
+                  >
+                    ✓ Nacional
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setVehicle({ tipoPlaca: 'extranjera' })}
+                    className={cn(
+                      'px-2.5 py-1 rounded-md transition-all',
+                      vehicle.tipoPlaca === 'extranjera'
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-slate-500 hover:text-slate-700',
+                    )}
+                  >
+                    Extranjera
+                  </button>
+                </span>
+              </span> as unknown as string
+            }
+            error={errors.placa}
+          >
             <Input
               value={vehicle.placa}
               onChange={(e) => setVehicle({ placa: e.target.value.toUpperCase() })}
-              placeholder="AE123KT"
+              placeholder={vehicle.tipoPlaca === 'extranjera' ? 'ABC-1234' : 'AE123KT'}
               className="uppercase font-mono tracking-wider"
-              maxLength={8}
+              maxLength={vehicle.tipoPlaca === 'extranjera' ? 12 : 8}
             />
           </Field>
 
@@ -328,6 +382,7 @@ export function VehicleStep() {
             {anios.length > 0 ? (
               <Select
                 value={vehicle.año}
+                disabled={verified}
                 onChange={(e) => {
                   setVehicle({ año: e.target.value, cmarca: '', marca: '', cmodelo: '', modelo: '', cversion: '', ccategoria_uso: undefined, xcategoria_uso: '' });
                 }}
@@ -359,6 +414,7 @@ export function VehicleStep() {
             {marcas.length > 0 ? (
               <Select
                 value={vehicle.cmarca ?? ''}
+                disabled={verified}
                 onChange={(e) => {
                   const cmarca = e.target.value;
                   const xmarca = marcas.find(m => m.cmarca === cmarca)?.xmarca ?? '';
@@ -406,6 +462,7 @@ export function VehicleStep() {
             {modelos.length > 0 ? (
               <Select
                 value={vehicle.cmodelo ?? ''}
+                disabled={verified}
                 onChange={(e) => {
                   const cmodelo = e.target.value;
                   const xmodelo = modelos.find(m => m.cmodelo === cmodelo)?.xmodelo ?? '';

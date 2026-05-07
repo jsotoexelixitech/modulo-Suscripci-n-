@@ -2,7 +2,7 @@ import { useWizardStore } from '../../store/wizardStore';
 import { Button } from '../../components/ui/Button';
 import { toast } from '../../store/toastStore';
 import {
-  CheckCircle2, Download, Mail, RefreshCw, ShieldCheck,
+  CheckCircle2, Download, RefreshCw, ShieldCheck,
   Calendar, Share2, Copy, ExternalLink,
 } from 'lucide-react';
 import { formatUsdShort } from '../../lib/money';
@@ -60,7 +60,7 @@ export function SuccessStep() {
           Tu póliza está activa
         </h2>
         <p className="text-slate-500 max-w-md mx-auto leading-relaxed text-sm">
-          La póliza fue emitida correctamente. Te enviamos una copia por correo y puedes descargarla cuando quieras.
+          La póliza fue emitida correctamente. Puedes descargar el PDF cuando quieras.
         </p>
       </div>
 
@@ -176,14 +176,6 @@ export function SuccessStep() {
         >
           <Download size={15} />
           Descargar PDF
-        </Button>
-        <Button
-          variant="secondary"
-          size="lg"
-          onClick={() => toast.success('Correo enviado', 'Te enviamos la póliza al correo registrado.')}
-        >
-          <Mail size={15} />
-          Enviar por correo
         </Button>
         <Button
           variant="secondary"

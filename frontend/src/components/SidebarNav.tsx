@@ -42,6 +42,7 @@ export function SidebarNav() {
     card: 'Tarjeta',
     transfer: 'Transferencia',
     mobile: 'Pago móvil',
+    otp: 'Débito SyPago',
   };
 
   const progressPct = Math.min(((step - 1) / (STEPS.length - 1)) * 100, 100);
@@ -58,13 +59,12 @@ export function SidebarNav() {
         />
       </div>
 
-      {/* Live status pill */}
+      {/* Pill informativa — sesión segura por HTTPS. No hay heartbeat real, así
+          que evitamos el lenguaje "Sesión activa" + ping que sugieren conexión
+          monitorizada en tiempo real. */}
       <div className="flex items-center gap-2 mb-8 py-1.5 px-3 rounded-full bg-emerald-500/8 border border-emerald-500/15 self-start">
-        <span className="relative flex w-1.5 h-1.5">
-          <span className="absolute inset-0 rounded-full bg-emerald-400 animate-ping opacity-75" />
-          <span className="relative w-1.5 h-1.5 rounded-full bg-emerald-400" />
-        </span>
-        <span className="text-[0.62rem] font-bold text-emerald-300 tracking-wider uppercase">Sesión activa</span>
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+        <span className="text-[0.62rem] font-bold text-emerald-300 tracking-wider uppercase">Conexión segura</span>
       </div>
 
       {/* Steps with vertical progress line */}

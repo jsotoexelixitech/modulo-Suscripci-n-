@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useWizardStore } from '../../store/wizardStore';
-import { Field, Input, Select } from '../../components/ui/FormField';
+import { Field, Input } from '../../components/ui/FormField';
 import { BankSearchSelect } from '../../components/ui/BankSearchSelect';
 import type { PaymentMethod } from '../../types';
 import {
@@ -50,9 +50,6 @@ const BANCOS_MOVIL: { code: string; label: string }[] = [
   { code: '0137', label: 'Sofitasa'                      },
 ];
 
-// Para transferencia (solo nombre, sin código)
-const BANCOS_TRANSFER = BANCOS_MOVIL.map((b) => b.label);
-
 const PAYMENT_OPTIONS: {
   method: PaymentMethod;
   label: string;
@@ -73,11 +70,6 @@ export function PaymentStep() {
   // ── Campos compartidos ────────────────────────────────────────────────
   const [bankCode,    setBankCode]    = useState('');
   const [bankLabel,   setBankLabel]   = useState('');
-
-  // ── Transferencia ────────────────────────────────────────────────────
-  const [referencia,  setRef]         = useState('');
-  const [fechaPago,   setFechaPago]   = useState('');
-  const [montoPago,   setMonto]       = useState('');
 
   // ── Pago móvil (Meritop) ──────────────────────────────────────────────
   const [telefonoPago, setTelPago]   = useState('');
@@ -124,8 +116,14 @@ export function PaymentStep() {
     return () => window.clearTimeout(t);
   }, [otpCooldown]);
 
+  // Si el store quedó con un método legacy ('card' / 'transfer' que ya no se
+  // ofrecen en PAYMENT_OPTIONS), redirigimos a 'mobile' para evitar pantalla
+  // vacía. Esto puede ocurrir si el usuario tenía estado previo persistido o
+  // si el flujo cambió entre versiones.
   useEffect(() => {
-    if (paymentMethod === 'card' || paymentMethod === 'transfer') setPaymentMethod('mobile');
+    if (paymentMethod === 'card' || paymentMethod === 'transfer') {
+      setPaymentMethod('mobile');
+    }
   }, [paymentMethod, setPaymentMethod]);
 
   const isLoadingQuote = quoteState === 'loading';
@@ -136,14 +134,6 @@ export function PaymentStep() {
   const annualVes = hasRealQuote ? vesAnnual(quote)       : 0;
 
   // ── Validaciones transferencia ──────────────────────────────────────
-  const transErrors = {
-    banco    : !bankLabel                                          ? 'Selecciona el banco emisor'        : '',
-    ref      : !referencia                                        ? 'La referencia es obligatoria'       : !/^\d{4,20}$/.test(referencia) ? 'Solo dígitos, entre 4 y 20 caracteres' : '',
-    fecha    : !fechaPago                                         ? 'La fecha es obligatoria'            : '',
-    monto    : !montoPago                                         ? 'El monto es obligatorio'            : isNaN(parseFloat(montoPago)) || parseFloat(montoPago) <= 0 ? 'Ingresa un monto válido' : '',
-  };
-  const transferCompleto = Object.values(transErrors).every(e => !e);
-
   // ── Validaciones pago móvil (Meritop) ─────────────────────────────
   const movErrors = {
     banco    : !bankCode                                          ? 'Selecciona el banco'                : '',
@@ -379,58 +369,6 @@ export function PaymentStep() {
             <span className="px-1.5 py-0.5 rounded bg-slate-100 font-mono">SSL</span>
           </span>
         </div>
-
-        {/* ── TRANSFERENCIA ── */}
-        {paymentMethod === 'transfer' && (
-          <div className="animate-fade-in grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Banco emisor" error={transErrors.banco}>
-              <Select
-                value={bankLabel}
-                onChange={(e) => { setBankLabel(e.target.value); setBankCode(''); }}
-              >
-                <option value="">— Selecciona el banco —</option>
-                {BANCOS_TRANSFER.map(b => <option key={b} value={b}>{b}</option>)}
-              </Select>
-            </Field>
-            <Field label="Número de referencia" error={transErrors.ref} hint="Solo los dígitos del comprobante">
-              <Input
-                value={referencia}
-                onChange={(e) => setRef(e.target.value.replace(/\D/g, ''))}
-                placeholder="Ej. 00123456789"
-                inputMode="numeric"
-                maxLength={20}
-              />
-            </Field>
-            <Field label="Fecha de la transferencia" error={transErrors.fecha}>
-              <Input
-                type="date"
-                value={fechaPago}
-                onChange={(e) => setFechaPago(e.target.value)}
-                max={new Date().toISOString().split('T')[0]}
-              />
-            </Field>
-            <Field label="Monto transferido (Bs)" error={transErrors.monto}>
-              <Input
-                value={montoPago}
-                onChange={(e) => setMonto(e.target.value.replace(/[^0-9.]/g, ''))}
-                placeholder="198114.50"
-                inputMode="decimal"
-              />
-            </Field>
-
-            {transferCompleto && (
-              <div className="sm:col-span-2 flex items-center gap-3 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 animate-fade-in">
-                <CheckCircle2 size={18} className="text-emerald-500 shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-xs font-bold text-emerald-800">Datos de transferencia registrados</p>
-                  <p className="text-[0.7rem] text-emerald-600 mt-0.5">
-                    {bankLabel} · Ref. {referencia} · Bs {montoPago}
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
 
         {/* ── PAGO MÓVIL ── */}
         {paymentMethod === 'mobile' && (

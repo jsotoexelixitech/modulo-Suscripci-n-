@@ -439,7 +439,10 @@ export function EmissionStep() {
           )}
         </SectionCard>
 
-        {/* Asegurado */}
+        {/* Asegurado — oculto a pedido del cliente. En la práctica el tomador
+            siempre es el asegurado. Conservamos el código para reactivar a futuro
+            sin volver a escribirlo (mismo patrón que "Beneficiario" más abajo). */}
+        {false && (
         <SectionCard
           Icon={UserPlus}
           title="¿El seguro es para ti?"
@@ -482,6 +485,7 @@ export function EmissionStep() {
             </div>
           )}
         </SectionCard>
+        )}
 
         {/* Beneficiario — oculto temporalmente, conservar codigo */}
         {false && (

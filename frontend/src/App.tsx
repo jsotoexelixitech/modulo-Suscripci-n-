@@ -265,15 +265,16 @@ export default function App() {
                     )}
                   </div>
 
-                  {/* Help pill */}
-                  <button
-                    type="button"
-                    onClick={() => toast.info('Centro de ayuda', 'Disponible próximamente. Escríbenos a soporte@lamundial.com', 4000)}
+                  {/* Help — link directo al correo de soporte. Antes era un
+                      botón decorativo con toast "próximamente"; ahora abre el
+                      cliente de correo del usuario con el asunto pre-rellenado. */}
+                  <a
+                    href="mailto:soporte@lamundialdeseguros.com?subject=Suscripci%C3%B3n%20RCV%20-%20Soporte"
                     className="hidden sm:inline-flex items-center gap-2 px-3.5 py-2 rounded-full glass-light text-slate-600 hover:text-indigo-600 text-xs font-bold transition-all hover:-translate-y-0.5"
                   >
                     <HelpCircle size={13} />
                     ¿Necesitas ayuda?
-                  </button>
+                  </a>
                 </div>
               </header>
             )}
