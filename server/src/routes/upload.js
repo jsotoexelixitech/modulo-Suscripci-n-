@@ -13,10 +13,11 @@ const sypagoClient = require('../services/sypago/sypagoClient');
  */
 /**
  * Normaliza cualquier imagen recibida para OCR:
- * - Máximo 1600 px en el lado más largo (suficiente para leer texto)
- * - JPEG calidad 82 % → documentos quedan ~200-500 KB
+ * - Máximo 2000 px en el lado más largo (mejor para Gemini 2.5 Pro)
+ * - JPEG calidad 90 % con mozjpeg → buena densidad de texto, ~400-900 KB
  * - Convierte HEIC/HEIF/PNG/WebP → JPEG
  * - Aplica rotación EXIF automática (fotos tomadas en vertical/horizontal)
+ * - Mejora ligera de contraste/nitidez para documentos plastificados
  * - PDFs pasan sin cambios
  */
 async function normalizeImage(filePath, mimetype) {
@@ -30,9 +31,11 @@ async function normalizeImage(filePath, mimetype) {
 
   await sharp(filePath)
     .rotate()                                                   // orientación EXIF
-    .resize(1600, 1600, { fit: 'inside', withoutEnlargement: true })
+    .resize(2000, 2000, { fit: 'inside', withoutEnlargement: true })
     .flatten({ background: { r: 255, g: 255, b: 255 } })       // fondo blanco (PNG transparente)
-    .jpeg({ quality: 82, mozjpeg: true })                       // mozjpeg = mejor compresión sin artefactos
+    .normalise()                                                // normaliza contraste para fotos sub-expuestas
+    .sharpen({ sigma: 0.6 })                                    // realza bordes sutilmente para texto pequeño
+    .jpeg({ quality: 90, mozjpeg: true, chromaSubsampling: '4:4:4' })
     .toFile(jpegPath);
 
   // Borrar original si ya no sirve

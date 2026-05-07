@@ -105,8 +105,13 @@ async function runOcr(file, docType) {
       const gemini = require('./ocrProviders/geminiProvider');
       const result = await gemini.extract(file.path, file.mimetype, docType);
 
-      const startedMsg = `[OCR] gemini OK (${result.meta.elapsedMs} ms) docType=${docType} model=${result.meta.model}`;
-      console.log(startedMsg);
+      const chainSummary = (result.meta.chainAttempts || [])
+        .map(a => `${a.model}(${a.criticalOk ? 'ok' : a.error ? 'err' : 'partial'})`)
+        .join(' → ');
+      console.log(
+        `[OCR] gemini OK (${result.meta.elapsedMs} ms) docType=${docType} ` +
+        `model=${result.meta.model}${chainSummary ? ` chain=[${chainSummary}]` : ''}`
+      );
 
       // Validacion: el header del documento debe coincidir con el slot solicitado.
       const detected = result.fields && result.fields.documentoTipo;
