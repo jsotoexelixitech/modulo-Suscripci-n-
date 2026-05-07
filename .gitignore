@@ -60,3 +60,8 @@ cloudflare-url.txt
 *.pem
 *.key
 *.crt
+
+# QA evidence (regenerable, no se commitea)
+qa-evidence/
+playwright-report/
+test-results/

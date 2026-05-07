@@ -9,11 +9,24 @@
     "start": "cross-env NODE_ENV=production node server/src/index.js",
     "deploy": "npm run build && cross-env NODE_ENV=production node server/src/index.js",
     "install:all": "npm install --prefix server && npm install --prefix frontend",
-    "lint": "npm run lint --prefix frontend"
+    "lint": "npm run lint --prefix frontend",
+    "test:server": "npm test --prefix server",
+    "test:frontend": "npm test --prefix frontend",
+    "test:all": "npm run test:server && npm run test:frontend",
+    "qa:units": "tsx e2e/reporting/run-unit-suites.ts",
+    "qa:test": "playwright test --config=e2e/playwright.config.ts",
+    "qa:codegen": "playwright codegen http://localhost:5180",
+    "qa:open": "playwright show-report qa-evidence/playwright-report",
+    "qa:acta": "tsx e2e/reporting/generate-acta.ts",
+    "qa:report": "npm run qa:test && npm run qa:acta",
+    "qa:full": "npm run qa:units && npm run qa:report"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "concurrently": "^9.2.1",
-    "cross-env": "^10.1.0"
+    "cross-env": "^10.1.0",
+    "handlebars": "^4.7.9",
+    "tsx": "^4.21.0"
   },
   "engines": {
     "node": ">=18.0.0",

@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Acta de Pruebas Funcionales — Suscripción RCV</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 14mm 14mm;
+    }
+    @page :first {
+      margin: 0;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Helvetica', 'Arial', sans-serif;
+      color: #0f172a;
+      font-size: 10.5pt;
+      line-height: 1.45;
+      margin: 0;
+    }
+
+    /* ────────────────────────────────────────────────────────────────
+       CARÁTULA — Bienvenida con logo y diseño full-page
+       ──────────────────────────────────────────────────────────────── */
+    .cover {
+      page-break-after: always;
+      width: 210mm;
+      height: 297mm;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 20% 0%, rgba(220,38,38,0.08) 0%, transparent 45%),
+        radial-gradient(circle at 80% 100%, rgba(30,58,138,0.10) 0%, transparent 50%),
+        linear-gradient(180deg, #ffffff 0%, #f8fafc 60%, #f1f5f9 100%);
+    }
+    .cover::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 8mm;
+      background: linear-gradient(90deg, #1e3a8a 0%, #1e3a8a 50%, #dc2626 50%, #dc2626 100%);
+    }
+    .cover::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 4mm;
+      background: linear-gradient(90deg, #1e3a8a 0%, #1e3a8a 50%, #dc2626 50%, #dc2626 100%);
+    }
+    .cover .top {
+      flex: 0 0 auto;
+      padding: 28mm 0 0 0;
+      text-align: center;
+    }
+    .cover .logo {
+      width: 60mm;
+      height: auto;
+      margin-bottom: 12mm;
+      mix-blend-mode: multiply;
+    }
+    .cover .badge {
+      display: inline-block;
+      padding: 5px 14px;
+      background: #1e3a8a;
+      color: white;
+      font-size: 8.5pt;
+      font-weight: 700;
+      letter-spacing: 1.8px;
+      border-radius: 99px;
+      margin-bottom: 14px;
+    }
+    .cover h1 {
+      font-size: 30pt;
+      margin: 0 0 8px 0;
+      color: #1e3a8a;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      line-height: 1.1;
+    }
+    .cover .subtitle {
+      font-size: 13pt;
+      color: #475569;
+      margin: 0;
+      font-weight: 400;
+    }
+
+    .cover .middle {
+      flex: 1 1 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 18mm;
+    }
+
+    /* Tarjeta de metadatos elegante */
+    .cover .meta-card {
+      width: 100%;
+      max-width: 150mm;
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 22px 28px;
+      box-shadow: 0 6px 24px rgba(15,23,42,0.07);
+      position: relative;
+    }
+    .cover .meta-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 28px; right: 28px;
+      height: 3px;
+      background: linear-gradient(90deg, #1e3a8a, #dc2626);
+      border-radius: 0 0 3px 3px;
+    }
+    .cover .meta-card .meta-title {
+      font-size: 9pt;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      font-weight: 700;
+      margin-bottom: 14px;
+      text-align: center;
+    }
+    .cover .meta-card dl {
+      margin: 0;
+      display: grid;
+      grid-template-columns: 38mm 1fr;
+      row-gap: 9px;
+      column-gap: 16px;
+    }
+    .cover .meta-card dt {
+      font-weight: 700;
+      color: #475569;
+      text-transform: uppercase;
+      font-size: 8pt;
+      letter-spacing: 0.8px;
+      align-self: center;
+    }
+    .cover .meta-card dd {
+      margin: 0;
+      color: #0f172a;
+      font-weight: 500;
+      font-size: 10pt;
+    }
+
+    /* Sumario de resultados — barra de aprobación */
+    .cover .verdict-banner {
+      width: 100%;
+      max-width: 150mm;
+      margin: 14mm auto 0;
+      padding: 14px 22px;
+      border-radius: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+    }
+    .cover .verdict-banner.passed { background: #ecfdf5; border: 1.5px solid #10b981; }
+    .cover .verdict-banner.failed { background: #fef2f2; border: 1.5px solid #ef4444; }
+    .cover .verdict-banner.partial { background: #fffbeb; border: 1.5px solid #f59e0b; }
+    .cover .verdict-banner .v-label {
+      font-size: 9pt;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 700;
+      color: #475569;
+    }
+    .cover .verdict-banner .v-value {
+      font-size: 13pt;
+      font-weight: 800;
+    }
+    .cover .verdict-banner.passed .v-value { color: #047857; }
+    .cover .verdict-banner.failed .v-value { color: #b91c1c; }
+    .cover .verdict-banner.partial .v-value { color: #b45309; }
+    .cover .verdict-banner .stats {
+      display: flex;
+      gap: 14px;
+      font-size: 9.5pt;
+      color: #475569;
+    }
+    .cover .verdict-banner .stats strong {
+      color: #0f172a;
+      font-weight: 700;
+    }
+
+    .cover .bottom {
+      flex: 0 0 auto;
+      padding: 0 18mm 16mm;
+      text-align: center;
+      color: #94a3b8;
+      font-size: 8.5pt;
+      letter-spacing: 0.5px;
+    }
+    .cover .bottom .conf {
+      display: inline-block;
+      padding: 3px 11px;
+      border: 1px solid #cbd5e1;
+      border-radius: 99px;
+      margin-bottom: 6px;
+      font-weight: 600;
+      letter-spacing: 1.2px;
+      font-size: 7.5pt;
+      color: #64748b;
+    }
+
+    /* ────────────────────────────────────────────────────────────────
+       Encabezado de páginas internas
+       ──────────────────────────────────────────────────────────────── */
+    .page-header {
+      border-bottom: 2px solid #1e3a8a;
+      padding-bottom: 7px;
+      margin-bottom: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+    .page-header .brand {
+      font-size: 9.5pt;
+      font-weight: 800;
+      color: #1e3a8a;
+      letter-spacing: 0.5px;
+    }
+    .page-header .doc {
+      font-size: 8.5pt;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    h2.section {
+      font-size: 13.5pt;
+      color: #1e3a8a;
+      border-bottom: 1px solid #cbd5e1;
+      padding-bottom: 5px;
+      margin: 18px 0 12px 0;
+    }
+
+    /* Resumen ejecutivo */
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .summary .card {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 12px;
+      text-align: center;
+    }
+    .summary .card .num {
+      font-size: 22pt;
+      font-weight: 800;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+    .summary .card.passed .num { color: #16a34a; }
+    .summary .card.failed .num { color: #dc2626; }
+    .summary .card.skipped .num { color: #ca8a04; }
+    .summary .card .lbl {
+      font-size: 8pt;
+      text-transform: uppercase;
+      color: #64748b;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+    }
+
+    p.intro {
+      font-size: 9.5pt;
+      color: #475569;
+      margin: 0 0 14px;
+    }
+
+    h3.subsection {
+      font-size: 11.5pt;
+      color: #1e3a8a;
+      margin: 18px 0 8px;
+      font-weight: 700;
+    }
+
+    /* KPIs en fila bajo el resumen */
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    .kpi {
+      background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 11px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .kpi-label {
+      font-size: 8pt;
+      text-transform: uppercase;
+      color: #64748b;
+      letter-spacing: 0.6px;
+      font-weight: 700;
+    }
+    .kpi-value {
+      font-size: 15pt;
+      color: #0f172a;
+      font-weight: 800;
+    }
+    .kpi-value.ok { color: #16a34a; }
+
+    /* Tabla de alcance */
+    table.scope-table,
+    table.glossary-table,
+    table.endpoint-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 9.5pt;
+      margin-bottom: 12px;
+    }
+    table.scope-table th,
+    table.endpoint-table th {
+      text-align: left;
+      padding: 8px 10px;
+      border-bottom: 1.5px solid #cbd5e1;
+      background: #f1f5f9;
+      font-weight: 700;
+      color: #334155;
+      font-size: 9pt;
+    }
+    table.scope-table th.r,
+    table.scope-table td.r,
+    table.endpoint-table .r { text-align: right; }
+    table.scope-table td,
+    table.endpoint-table td {
+      padding: 8px 10px;
+      border-bottom: 1px solid #e2e8f0;
+      vertical-align: top;
+    }
+    table.scope-table code,
+    table.endpoint-table code,
+    .note-box code,
+    p.intro code,
+    li code {
+      background: #f1f5f9;
+      padding: 1.5px 5px;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+      font-size: 8.5pt;
+      color: #1e3a8a;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 3px 9px;
+      border-radius: 99px;
+      font-size: 7.5pt;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .pill.ok   { background: #dcfce7; color: #166534; }
+    .pill.warn { background: #fef3c7; color: #92400e; }
+    .pill.ko   { background: #fee2e2; color: #991b1b; }
+
+    /* Caja de nota / observación importante */
+    .note-box {
+      background: #fffbeb;
+      border-left: 4px solid #f59e0b;
+      border-radius: 0 6px 6px 0;
+      padding: 10px 14px;
+      font-size: 9.5pt;
+      color: #475569;
+      line-height: 1.5;
+      margin: 10px 0 14px;
+    }
+    .note-box strong { color: #92400e; }
+
+    /* Tarjetas de metodología */
+    .method-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .method-card {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 12px 13px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .method-card .method-num {
+      font-size: 8pt;
+      font-weight: 700;
+      color: #1e3a8a;
+      letter-spacing: 1.5px;
+      background: #dbeafe;
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      align-self: flex-start;
+      margin-bottom: 4px;
+    }
+    .method-card .method-title {
+      font-size: 10.5pt;
+      font-weight: 700;
+      color: #0f172a;
+      line-height: 1.2;
+    }
+    .method-card .method-tech {
+      font-size: 8.5pt;
+      color: #64748b;
+      font-weight: 500;
+      font-style: italic;
+      margin-bottom: 4px;
+    }
+    .method-card .method-body {
+      font-size: 9pt;
+      color: #475569;
+      line-height: 1.45;
+      flex: 1;
+    }
+    .method-card .method-stat {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px dashed #e2e8f0;
+      font-size: 9pt;
+      color: #1e3a8a;
+      font-weight: 700;
+    }
+
+    /* Glosario */
+    table.glossary-table .term {
+      font-weight: 800;
+      color: #1e3a8a;
+      width: 28%;
+      padding: 8px 10px;
+      border-bottom: 1px solid #e2e8f0;
+      vertical-align: top;
+    }
+    table.glossary-table td {
+      padding: 8px 10px;
+      border-bottom: 1px solid #e2e8f0;
+      color: #475569;
+      vertical-align: top;
+    }
+
+    ol.steps-list {
+      padding-left: 20px;
+      margin: 8px 0 14px;
+      color: #475569;
+      font-size: 9.5pt;
+      line-height: 1.55;
+    }
+    ol.steps-list li { margin-bottom: 4px; }
+
+    /* Tabla de unit tests */
+    table.unit-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 9.5pt;
+      margin-bottom: 10px;
+    }
+    table.unit-table th {
+      text-align: left;
+      padding: 8px;
+      border-bottom: 1.5px solid #cbd5e1;
+      background: #f1f5f9;
+      font-weight: 700;
+      color: #334155;
+    }
+    table.unit-table th.r,
+    table.unit-table td.r { text-align: right; }
+    table.unit-table td {
+      padding: 8px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    table.unit-table .ok { color: #16a34a; font-weight: 700; }
+    table.unit-table .ko { color: #dc2626; font-weight: 700; }
+    table.unit-table td.note { color: #64748b; font-size: 8.5pt; }
+
+    /* ────────────────────────────────────────────────────────────────
+       Casos de prueba — flujo continuo, los steps NO se cortan
+       ──────────────────────────────────────────────────────────────── */
+    .case {
+      margin-bottom: 16px;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      overflow: hidden;
+      /* page-break-inside: avoid eliminado deliberadamente: en su lugar
+         dejamos que el caso se corte entre páginas y solo protegemos
+         cada step individualmente para evitar páginas casi vacías. */
+    }
+    .case-head {
+      background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+      padding: 10px 14px;
+      border-bottom: 1px solid #e2e8f0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+    .case-head .id {
+      font-family: 'Courier New', monospace;
+      font-size: 9pt;
+      font-weight: 700;
+      color: #1e3a8a;
+      background: #dbeafe;
+      padding: 3px 9px;
+      border-radius: 5px;
+    }
+    .case-head .status {
+      font-weight: 700;
+      font-size: 9pt;
+      padding: 4px 12px;
+      border-radius: 99px;
+    }
+    .case-head .status.passed { background: #dcfce7; color: #166534; }
+    .case-head .status.failed { background: #fee2e2; color: #991b1b; }
+    .case-head .status.skipped { background: #fef3c7; color: #92400e; }
+    .case-head h3 {
+      flex: 1;
+      margin: 0;
+      font-size: 10.5pt;
+      color: #0f172a;
+      font-weight: 700;
+    }
+    .case-body {
+      padding: 12px 14px;
+    }
+    .case-body .desc {
+      font-size: 9pt;
+      color: #475569;
+      margin-bottom: 10px;
+      padding: 8px 11px;
+      background: #f8fafc;
+      border-left: 3px solid #1e3a8a;
+      border-radius: 0 5px 5px 0;
+      line-height: 1.4;
+    }
+    .case-body .meta-row {
+      display: flex;
+      gap: 16px;
+      font-size: 8.5pt;
+      color: #64748b;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .case-body .meta-row strong { color: #0f172a; }
+
+    .step {
+      margin-bottom: 11px;
+      page-break-inside: avoid;
+    }
+    .step .step-head {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      margin-bottom: 5px;
+    }
+    .step .step-head .num {
+      background: #1e3a8a;
+      color: white;
+      font-weight: 700;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 8.5pt;
+      flex-shrink: 0;
+    }
+    .step .step-head .name {
+      flex: 1;
+      font-weight: 600;
+      font-size: 9.5pt;
+      color: #0f172a;
+    }
+    .step .step-head .ts {
+      font-family: 'Courier New', monospace;
+      font-size: 7.5pt;
+      color: #94a3b8;
+    }
+    .step .img-wrap {
+      width: 100%;
+      text-align: center;
+    }
+    .step img {
+      width: 70%;
+      max-width: 130mm;
+      height: auto;
+      display: inline-block;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      box-shadow: 0 2px 8px rgba(15,23,42,0.06);
+      background: white;
+    }
+
+    /* ────────────────────────────────────────────────────────────────
+       Certificación QA
+       ──────────────────────────────────────────────────────────────── */
+    .cert {
+      page-break-before: always;
+      padding-top: 20px;
+    }
+    .cert h2 {
+      text-align: center;
+      color: #1e3a8a;
+      font-size: 17pt;
+      margin: 0 0 22px;
+      letter-spacing: 1px;
+    }
+    .cert .field {
+      margin-bottom: 22px;
+    }
+    .cert .field label {
+      display: block;
+      font-weight: 700;
+      color: #475569;
+      font-size: 9.5pt;
+      margin-bottom: 5px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .cert .field .line {
+      border-bottom: 1.5px solid #94a3b8;
+      height: 26px;
+    }
+    .cert .verdict {
+      margin-top: 28px;
+      padding: 16px;
+      border: 2px dashed #cbd5e1;
+      border-radius: 10px;
+    }
+    .cert .verdict label {
+      display: block;
+      margin: 7px 0;
+      font-size: 10.5pt;
+    }
+    .cert .verdict .checkbox {
+      display: inline-block;
+      width: 13px;
+      height: 13px;
+      border: 1.5px solid #475569;
+      margin-right: 9px;
+      vertical-align: middle;
+      border-radius: 3px;
+      position: relative;
+    }
+    .cert .verdict .checkbox.checked { background: #1e3a8a; border-color: #1e3a8a; }
+    .cert .verdict .checkbox.checked::after {
+      content: '\2713';
+      color: white;
+      font-size: 11pt;
+      font-weight: 800;
+      position: absolute;
+      top: -4px;
+      left: 1px;
+      line-height: 1;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       CARÁTULA — Bienvenida con marca La Mundial
+       ════════════════════════════════════════════════════════════════ -->
+  <section class="cover">
+    <div class="top">
+      {{#if logoDataUri}}
+      <img class="logo" src="{{logoDataUri}}" alt="La Mundial de Seguros" />
+      {{/if}}
+      <div class="badge">CERTIFICACIÓN DE CALIDAD</div>
+      <h1>Acta de Pruebas Funcionales</h1>
+      <p class="subtitle">Suscripción RCV — Plataforma de Emisión Digital</p>
+    </div>
+
+    <div class="middle">
+      <div>
+        <div class="meta-card">
+          <div class="meta-title">Información de la corrida</div>
+          <dl>
+            <dt>Proyecto</dt>          <dd>Suscripción RCV</dd>
+            <dt>Build</dt>             <dd>{{build}}</dd>
+            <dt>Ambiente</dt>          <dd>{{environment}}</dd>
+            <dt>Fecha de ejecución</dt><dd>{{executedAt}}</dd>
+            <dt>Ejecutor</dt>          <dd>{{tester}}</dd>
+            <dt>Plataforma</dt>        <dd>{{platform}}</dd>
+            <dt>Duración total</dt>    <dd>{{durationFormatted}}</dd>
+          </dl>
+        </div>
+
+        <div class="verdict-banner {{#if verdictApproved}}passed{{else}}{{#if verdictRejected}}failed{{else}}partial{{/if}}{{/if}}">
+          <div>
+            <div class="v-label">Resultado</div>
+            <div class="v-value">
+              {{#if verdictApproved}}APROBADO{{/if}}
+              {{#if verdictRejected}}RECHAZADO{{/if}}
+              {{#if verdictWithObs}}APROBADO CON OBSERVACIONES{{/if}}
+            </div>
+          </div>
+          <div class="stats">
+            <span><strong>{{totals.total}}</strong> casos</span>
+            <span style="color:#16a34a;">✓ <strong>{{totals.passed}}</strong></span>
+            {{#if totals.failed}}<span style="color:#dc2626;">✗ <strong>{{totals.failed}}</strong></span>{{/if}}
+            {{#if totals.skipped}}<span style="color:#ca8a04;">⚠ <strong>{{totals.skipped}}</strong></span>{{/if}}
+            <span><strong>{{passRate}}%</strong> aprobación</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bottom">
+      <div class="conf">DOCUMENTO CONFIDENCIAL</div>
+      <div>Generado automáticamente por la suite de QA · La Mundial de Seguros © {{date}}</div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       RESUMEN EJECUTIVO
+       ════════════════════════════════════════════════════════════════ -->
+  <section>
+    <div class="page-header">
+      <div class="brand">LA MUNDIAL · Suscripción RCV</div>
+      <div class="doc">Acta de Pruebas — {{date}}</div>
+    </div>
+
+    <h2 class="section">1. Resumen Ejecutivo</h2>
+
+    <p class="intro">
+      Este documento certifica los resultados de las pruebas automatizadas ejecutadas sobre la
+      plataforma <strong>Suscripción RCV</strong> el día <strong>{{date}}</strong>, en el ambiente
+      <strong>{{environment}}</strong>. La suite cubre el flujo completo del usuario desde la subida
+      de documentos, la cotización contra los servicios reales de La Mundial de Seguros, hasta la
+      emisión y selección de método de pago de la póliza. Los resultados que se presentan a
+      continuación incluyen evidencia gráfica de cada paso ejecutado.
+    </p>
+
+    <div class="summary">
+      <div class="card">
+        <div class="num">{{grandTotalTests}}</div>
+        <div class="lbl">Pruebas totales</div>
+      </div>
+      <div class="card">
+        <div class="num">{{totals.total}}</div>
+        <div class="lbl">Casos E2E</div>
+      </div>
+      <div class="card passed">
+        <div class="num">{{totals.passed}}</div>
+        <div class="lbl">E2E aprobados</div>
+      </div>
+      <div class="card failed">
+        <div class="num">{{totals.failed}}</div>
+        <div class="lbl">E2E fallidos</div>
+      </div>
+    </div>
+
+    <div class="kpi-row">
+      <div class="kpi">
+        <span class="kpi-label">Tasa de aprobación E2E</span>
+        <span class="kpi-value ok">{{passRate}}%</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-label">Duración total E2E</span>
+        <span class="kpi-value">{{durationFormatted}}</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-label">Tests unitarios</span>
+        <span class="kpi-value">{{unitTotals.passed}}/{{unitTotals.tests}}</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       ALCANCE
+       ════════════════════════════════════════════════════════════════ -->
+  <section>
+    <h2 class="section">2. Alcance de las Pruebas</h2>
+
+    <p class="intro">
+      La suite valida los seis pasos del flujo de suscripción y los servicios externos críticos
+      con los que interactúa la plataforma. El alcance cubierto es:
+    </p>
+
+    <table class="scope-table">
+      <thead>
+        <tr>
+          <th style="width: 28%;">Componente</th>
+          <th>Funcionalidad validada</th>
+          <th style="width: 14%; text-align:center;">Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Paso 1 — Documentos</strong></td>
+          <td>
+            Subida de cédula, licencia y certificado. Procesamiento OCR con
+            <strong>Gemini 2.5 Pro</strong> y cadena de fallback automática a
+            Gemini 2.5 Flash y Flash-Lite ante errores transitorios o lecturas incompletas.
+          </td>
+          <td class="r"><span class="pill ok">CUBIERTO</span></td>
+        </tr>
+        <tr>
+          <td><strong>Paso 2 — Tomador</strong></td>
+          <td>Datos personales, dirección, catálogos La Mundial (sexo, estado civil, parentescos, estado, ciudad).</td>
+          <td class="r"><span class="pill ok">CUBIERTO</span></td>
+        </tr>
+        <tr>
+          <td><strong>Paso 3 — Vehículo</strong></td>
+          <td>Cascada INMA (año → marca → modelo → versión), categorías de uso, validación de placa y VIN.</td>
+          <td class="r"><span class="pill ok">CUBIERTO</span></td>
+        </tr>
+        <tr>
+          <td><strong>Paso 4 — Cotización</strong></td>
+          <td>Llamada real a <code>POST /getCotizacionAuto</code> de La Mundial. Cálculo de prima en VES y USD.</td>
+          <td class="r"><span class="pill ok">CUBIERTO</span></td>
+        </tr>
+        <tr>
+          <td><strong>Paso 5 — Pago</strong></td>
+          <td>Selección de método de pago, llenado de formulario Pago Móvil.</td>
+          <td class="r"><span class="pill warn">PARCIAL</span></td>
+        </tr>
+        <tr>
+          <td><strong>Paso 6 — Emisión</strong></td>
+          <td>Emisión real <code>POST /createEmissionAuto</code>, generación de número de póliza, descarga de PDF.</td>
+          <td class="r"><span class="pill ok">CUBIERTO</span></td>
+        </tr>
+        <tr>
+          <td><strong>Verificación Banco Activo</strong></td>
+          <td>Integración con Meritop / SUDEBAN para validar pagos móviles.</td>
+          <td class="r"><span class="pill ko">FUERA DE ALCANCE</span></td>
+        </tr>
+        <tr>
+          <td><strong>Pago OTP SyPago</strong></td>
+          <td>Solicitud y confirmación de OTP para débito directo.</td>
+          <td class="r"><span class="pill ko">FUERA DE ALCANCE</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="note-box">
+      <strong>Nota sobre los servicios fuera de alcance:</strong> al momento de la corrida, los
+      endpoints de Banco Activo (Meritop) y de SyPago OTP no estaban disponibles en el ambiente
+      del cliente. La suite incluye pruebas unitarias del cliente HTTP correspondiente
+      (<em>meritopClient</em>, <em>sypagoClient</em>) con respuestas mockeadas, pero la
+      verificación end-to-end de estos servicios queda pendiente para una corrida posterior
+      cuando los proveedores los habiliten.
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       METODOLOGÍA
+       ════════════════════════════════════════════════════════════════ -->
+  <section>
+    <h2 class="section">3. Metodología</h2>
+
+    <p class="intro">
+      Las pruebas están organizadas en tres niveles que se complementan entre sí. Cada nivel
+      ejecuta sobre un código fuente fijo y produce su propio reporte. Los reportes se
+      consolidan en este documento.
+    </p>
+
+    <div class="method-grid">
+      <div class="method-card">
+        <div class="method-num">01</div>
+        <div class="method-title">Pruebas Unitarias — Backend</div>
+        <div class="method-tech">Jest + Supertest</div>
+        <div class="method-body">
+          Validan la lógica de cada servicio del servidor de manera aislada. Incluyen los
+          clientes HTTP (La Mundial, Meritop, SyPago, Gemini), los validadores de payloads, los
+          mappers de catálogos INMA y las rutas Express con peticiones simuladas.
+        </div>
+        <div class="method-stat">{{unitLevels.[0].totalTests}} tests · {{unitLevels.[0].totalSuites}} suites</div>
+      </div>
+
+      <div class="method-card">
+        <div class="method-num">02</div>
+        <div class="method-title">Pruebas Unitarias — Frontend</div>
+        <div class="method-tech">Vitest + React Testing Library</div>
+        <div class="method-body">
+          Verifican el comportamiento de los componentes React (Inputs, Selects, ToggleSwitch,
+          IdentityInput), los stores de Zustand (wizardStore, toastStore) y las funciones puras
+          de utilidades (vehicleSignature, money formatters, cliente API).
+        </div>
+        <div class="method-stat">{{unitLevels.[1].totalTests}} tests · {{unitLevels.[1].totalSuites}} suites</div>
+      </div>
+
+      <div class="method-card">
+        <div class="method-num">03</div>
+        <div class="method-title">Pruebas End-to-End</div>
+        <div class="method-tech">Playwright + Chromium</div>
+        <div class="method-body">
+          Simulan al usuario real: abren un navegador Chromium, interactúan con la aplicación
+          y verifican el flujo completo. Cada paso captura una pantalla. Se contratan APIs
+          reales de La Mundial (cotización y emisión QA).
+        </div>
+        <div class="method-stat">{{totals.total}} casos · {{durationFormatted}}</div>
+      </div>
+    </div>
+
+    <h3 class="subsection">Datos utilizados</h3>
+    <p class="intro">
+      Los datos de entrada simulan a un cliente plausible: nombre y apellido reales, dirección
+      en Caracas, email a un dominio sin servicio (<code>example.com</code>), teléfono móvil
+      venezolano. <strong>Cédula y placa se generan aleatoriamente en cada corrida</strong>
+      para evitar colisiones con pólizas vigentes en el ambiente QA. La marca/modelo
+      seleccionada es <em>Toyota Corolla 2020</em>, presente en el catálogo INMA real de
+      La Mundial.
+    </p>
+
+    <h3 class="subsection">Estrategia de robustez del OCR</h3>
+    <p class="intro">
+      El paso de lectura de documentos es uno de los más sensibles del flujo: una falla
+      del proveedor de IA detendría la suscripción. Para minimizar este riesgo, el
+      provider Gemini implementa <strong>tres capas de defensa</strong> que actúan
+      automáticamente sin intervención del usuario:
+    </p>
+
+    <table class="scope-table">
+      <thead>
+        <tr>
+          <th style="width: 26%;">Capa</th>
+          <th>Comportamiento</th>
+          <th style="width: 18%; text-align:center;">Activación</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>1. Pre-procesado de imagen</strong></td>
+          <td>
+            <code>sharp</code> normaliza la imagen a 2000 px en su lado más largo,
+            JPEG de calidad 90 % con submuestreo 4:4:4, normalización de contraste y
+            realce de bordes. Garantiza que el modelo reciba un input legible.
+          </td>
+          <td class="r"><span class="pill ok">SIEMPRE</span></td>
+        </tr>
+        <tr>
+          <td><strong>2. Reintentos transitorios</strong></td>
+          <td>
+            Errores de red (5xx, timeout, rate-limit 429) o JSON inválido se reintentan
+            hasta 2 veces sobre el mismo modelo con <em>backoff</em> exponencial
+            (≈600&nbsp;ms, 1.2&nbsp;s, 2.4&nbsp;s + jitter).
+          </td>
+          <td class="r"><span class="pill ok">AUTOMÁTICA</span></td>
+        </tr>
+        <tr>
+          <td><strong>3. Cadena de modelos</strong></td>
+          <td>
+            Si los reintentos del modelo principal fallan, o el JSON resultante carece
+            de los campos críticos del documento (ej. <code>identificacion</code> en
+            cédula, <code>placa</code> en certificado), el provider baja al siguiente
+            modelo de la cadena: <code>gemini-2.5-pro</code> →
+            <code>gemini-2.5-flash</code> → <code>gemini-2.5-flash-lite</code>.
+          </td>
+          <td class="r"><span class="pill ok">AUTOMÁTICA</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="note-box">
+      <strong>Cobertura de tests:</strong> esta lógica está cubierta por la suite
+      <code>geminiProvider.test.js</code> (11 casos, 92 % de cobertura del archivo)
+      donde se mockea el SDK de Google para validar la cadena de fallback, los
+      reintentos por error transitorio, la detección de campos críticos vacíos y
+      el comportamiento ante <em>document type mismatch</em>.
+    </div>
+  </section>
+
+  {{#if hasUnit}}
+  <!-- ════════════════════════════════════════════════════════════════
+       RESULTADOS UNITARIOS
+       ════════════════════════════════════════════════════════════════ -->
+  <section>
+    <h2 class="section">4. Resultados de Pruebas Unitarias</h2>
+    <p class="intro">
+      Los reportes detallados de cobertura quedan disponibles en las carpetas
+      <code>server/coverage/</code> y <code>frontend/coverage/</code>. La tabla siguiente
+      resume el resultado consolidado de los dos niveles unitarios:
+    </p>
+    <table class="unit-table">
+      <thead>
+        <tr>
+          <th>Nivel</th>
+          <th class="r">Suites</th>
+          <th class="r">Tests</th>
+          <th class="r">Aprobados</th>
+          <th class="r">Fallidos</th>
+          <th>Cobertura</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{#each unitLevels}}
+        <tr>
+          <td><strong>{{this.name}}</strong></td>
+          <td class="r">{{this.totalSuites}}</td>
+          <td class="r">{{this.totalTests}}</td>
+          <td class="r ok">{{this.passed}}</td>
+          <td class="r ko">{{this.failed}}</td>
+          <td class="note">{{this.reportFile}}</td>
+        </tr>
+        {{/each}}
+        <tr style="background: #f1f5f9; font-weight: 700;">
+          <td>TOTAL UNITARIO</td>
+          <td class="r">{{unitTotals.suites}}</td>
+          <td class="r">{{unitTotals.tests}}</td>
+          <td class="r ok">{{unitTotals.passed}}</td>
+          <td class="r ko">{{unitTotals.failed}}</td>
+          <td></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+  {{/if}}
+
+  <!-- ════════════════════════════════════════════════════════════════
+       CASOS DE PRUEBA
+       ════════════════════════════════════════════════════════════════ -->
+  <h2 class="section" style="page-break-before: always;">5. Detalle por Caso de Prueba E2E</h2>
+  <p class="intro">
+    A continuación se detalla cada caso de prueba ejecutado, con sus pasos individuales y la
+    captura de pantalla correspondiente. Cada captura fue tomada en tiempo real durante la
+    ejecución, sin retoque manual. El timestamp de la derecha indica la hora exacta de captura.
+  </p>
+
+  {{#each cases}}
+  <section class="case">
+    <div class="case-head">
+      <span class="id">{{this.testId}}</span>
+      <h3>{{this.title}}</h3>
+      <span class="status {{this.status}}">{{this.statusLabel}}</span>
+    </div>
+    <div class="case-body">
+      {{#if this.description}}
+      <div class="desc">{{this.description}}</div>
+      {{/if}}
+      <div class="meta-row">
+        <span><strong>Pasos ejecutados:</strong> {{this.steps.length}}</span>
+        <span><strong>Iniciado:</strong> {{this.startedAtFormatted}}</span>
+        <span><strong>Duración:</strong> {{this.durationFormatted}}</span>
+      </div>
+
+      {{#each this.steps}}
+      <div class="step">
+        <div class="step-head">
+          <span class="num">{{this.order}}</span>
+          <span class="name">{{this.name}}</span>
+          <span class="ts">{{this.takenAtFormatted}}</span>
+        </div>
+        <div class="img-wrap">
+          <img src="{{this.screenshotAbsolute}}" alt="{{this.name}}" />
+        </div>
+      </div>
+      {{/each}}
+    </div>
+  </section>
+  {{/each}}
+
+  <!-- ════════════════════════════════════════════════════════════════
+       GLOSARIO Y REFERENCIAS
+       ════════════════════════════════════════════════════════════════ -->
+  <section style="page-break-before: always;">
+    <div class="page-header">
+      <div class="brand">LA MUNDIAL · Suscripción RCV</div>
+      <div class="doc">Acta de Pruebas — {{date}}</div>
+    </div>
+
+    <h2 class="section">6. Glosario y Servicios Externos</h2>
+
+    <table class="glossary-table">
+      <tbody>
+        <tr>
+          <td class="term">RCV</td>
+          <td>Responsabilidad Civil de Vehículos. Póliza de seguro obligatoria para circular en Venezuela.</td>
+        </tr>
+        <tr>
+          <td class="term">INMA</td>
+          <td>Catálogo Internacional de Marcas y Modelos Automotrices. La Mundial expone la cascada año → marca → modelo → versión a través de su API.</td>
+        </tr>
+        <tr>
+          <td class="term">VIN</td>
+          <td>Vehicle Identification Number. Serial único de 17 caracteres del vehículo.</td>
+        </tr>
+        <tr>
+          <td class="term">OCR</td>
+          <td>
+            Optical Character Recognition. En este proyecto se utiliza
+            <strong>Google Gemini 2.5 Pro</strong> como motor principal para extraer
+            datos de la cédula, licencia, certificado y RIF. El proveedor implementa
+            una cadena de respaldo automática (Pro → Flash → Flash-Lite) y reintentos
+            con <em>backoff</em> exponencial para garantizar lectura aún ante
+            errores transitorios o cuotas momentáneas del modelo principal.
+          </td>
+        </tr>
+        <tr>
+          <td class="term">OTP</td>
+          <td>One Time Password. Código de un solo uso que SyPago envía al cliente para confirmar pagos por débito.</td>
+        </tr>
+        <tr>
+          <td class="term">Cotización</td>
+          <td>Cálculo preliminar de la prima de la póliza. Endpoint: <code>POST /getCotizacionAuto</code>.</td>
+        </tr>
+        <tr>
+          <td class="term">Emisión</td>
+          <td>Generación definitiva de la póliza en La Mundial. Endpoint: <code>POST /createEmissionAuto</code>.</td>
+        </tr>
+        <tr>
+          <td class="term">SUDEBAN</td>
+          <td>Superintendencia de Bancos de Venezuela. Define los códigos de banco usados en pagos móviles.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3 class="subsection">Endpoints externos consumidos</h3>
+    <table class="endpoint-table">
+      <thead>
+        <tr>
+          <th style="width:32%;">Servicio</th>
+          <th>URL base</th>
+          <th style="width:14%;">Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>La Mundial QA</strong></td>
+          <td><code>https://qaapisys2000.lamundialdeseguros.com</code></td>
+          <td class="r"><span class="pill ok">DISPONIBLE</span></td>
+        </tr>
+        <tr>
+          <td><strong>Google Gemini</strong></td>
+          <td><code>generativelanguage.googleapis.com</code></td>
+          <td class="r"><span class="pill ok">DISPONIBLE</span></td>
+        </tr>
+        <tr>
+          <td><strong>Banco Activo (Meritop)</strong></td>
+          <td><code>api.meritop.com</code></td>
+          <td class="r"><span class="pill ko">NO DISPONIBLE</span></td>
+        </tr>
+        <tr>
+          <td><strong>SyPago OTP</strong></td>
+          <td><code>api.sypago.com.ve</code></td>
+          <td class="r"><span class="pill ko">NO DISPONIBLE</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3 class="subsection">Cómo reproducir esta corrida</h3>
+    <ol class="steps-list">
+      <li>Clonar el repositorio y ejecutar <code>npm install</code> en la raíz, en <code>server/</code> y en <code>frontend/</code>.</li>
+      <li>Configurar variables de entorno copiando <code>.env.example</code> a <code>.env</code>.</li>
+      <li>Levantar la app: <code>npm run dev</code> (frontend en puerto 5180, backend en 4000).</li>
+      <li>Ejecutar la suite completa: <code>npm run qa:full</code>. Esto corre tests unitarios, E2E y genera el ACTA.</li>
+      <li>El reporte HTML interactivo de Playwright queda en <code>qa-evidence/playwright-report/</code> y este PDF en <code>qa-evidence/ACTA-DE-PRUEBAS.pdf</code>.</li>
+    </ol>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       CERTIFICACIÓN QA
+       ════════════════════════════════════════════════════════════════ -->
+  <section class="cert">
+    <h2>7. CERTIFICACIÓN DE QA</h2>
+
+    <div class="field">
+      <label>Nombre del revisor</label>
+      <div class="line"></div>
+    </div>
+
+    <div class="field">
+      <label>Cargo / Rol</label>
+      <div class="line"></div>
+    </div>
+
+    <div class="field">
+      <label>Fecha de revisión</label>
+      <div class="line"></div>
+    </div>
+
+    <div class="field">
+      <label>Firma</label>
+      <div class="line" style="height: 50px;"></div>
+    </div>
+
+    <div class="verdict">
+      <label>
+        <span class="checkbox {{#if verdictApproved}}checked{{/if}}"></span>
+        <strong>APROBADO</strong> — Apto para producción
+      </label>
+      <label>
+        <span class="checkbox {{#if verdictWithObs}}checked{{/if}}"></span>
+        <strong>APROBADO CON OBSERVACIONES</strong>
+      </label>
+      <label>
+        <span class="checkbox {{#if verdictRejected}}checked{{/if}}"></span>
+        <strong>RECHAZADO</strong> — Devolver a desarrollo
+      </label>
+    </div>
+
+    <div class="field" style="margin-top: 22px;">
+      <label>Observaciones de QA</label>
+      <div style="border: 1.5px solid #94a3b8; border-radius: 6px; height: 100px;"></div>
+    </div>
+  </section>
+
+</body>
+</html>
