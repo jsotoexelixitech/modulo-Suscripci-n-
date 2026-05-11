@@ -147,7 +147,12 @@ async function bootstrap() {
   if (NODE_ENV === 'production') {
     const distPath = path.resolve(__dirname, '../../frontend/dist');
     app.use(express.static(distPath));
-    app.use('*', (_req: any, res: any) => {
+    // path-to-regexp v8+ ya no acepta '*' solo como wildcard.
+    // Usamos middleware sin path con check interno para el SPA fallback.
+    app.use((req: any, res: any, next: any) => {
+      if (req.path?.startsWith('/api') || req.path?.startsWith('/files')) {
+        return next();
+      }
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
