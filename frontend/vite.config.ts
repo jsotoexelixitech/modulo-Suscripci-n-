@@ -56,10 +56,14 @@ export default defineConfig(({ mode }) => {
         '/api': {
           target: 'http://localhost:3001',
           changeOrigin: true,
+          // El proxy server→server: forzar Origin a localhost:5180 (en la lista CORS)
+          // para que el backend no rechace peticiones del túnel de Cloudflare.
+          headers: { origin: 'http://localhost:5180' },
         },
         '/files': {
           target: 'http://localhost:3001',
           changeOrigin: true,
+          headers: { origin: 'http://localhost:5180' },
         },
       },
     },
