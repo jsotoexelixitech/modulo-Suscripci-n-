@@ -9,7 +9,7 @@ import {
 import type { Plan } from '../../types';
 import { AnimatedCounter } from '../../components/ui/AnimatedCounter';
 import { quotePolicy } from '../../lib/api';
-import { vehicleSignature, vesMonthly, vesAnnual } from '../../lib/money';
+import { vehicleSignature, vesAnnual } from '../../lib/money';
 import { toast } from '../../store/toastStore';
 
 const CATEGORY_ICONS: Record<string, React.ElementType> = {
@@ -228,7 +228,7 @@ export function PlansStep() {
           displayPrice={displayPrice}
           isLoadingQuote={isLoadingQuote}
           hasRealQuote={hasRealQuote}
-          quoteVes={billing === 'monthly' ? vesMonthly(quote) : vesAnnual(quote)}
+          quoteVes={vesAnnual(quote)}
           ptasa={quote?.ptasa}
           vehicleLabel={quote?.vehicleLabel}
           vehicleFallback={quote?.vehicleFallback}

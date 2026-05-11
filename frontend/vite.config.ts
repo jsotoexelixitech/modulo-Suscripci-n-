@@ -24,32 +24,16 @@ export default defineConfig(({ mode }) => {
       tailwindcss(),
     ],
 
-    // ── Ofuscación en producción ──────────────────────────────────────────
-    // Terser viene incluido en Vite — no necesita instalación extra.
-    // En dev se usa esbuild (más rápido) para que HMR no sufra.
+    // ── Minificación ──────────────────────────────────────────────────────
+    ...(isProd && {
+      esbuild: {
+        drop: ['console', 'debugger'] as ('console' | 'debugger')[],
+        legalComments: 'none' as const,
+      },
+    }),
+
     build: {
-      minify: isProd ? 'terser' : 'esbuild',
-      terserOptions: isProd ? {
-        compress: {
-          // Eliminar console.* en producción
-          drop_console:  true,
-          drop_debugger: true,
-          // Ofuscación de flujo de control
-          passes:        2,
-          pure_getters:  true,
-          unsafe:        true,
-          unsafe_arrows: true,
-        },
-        mangle: {
-          // Renombrar variables/funciones internas
-          toplevel: true,
-          safari10: true,
-        },
-        format: {
-          // Eliminar comentarios
-          comments: false,
-        },
-      } : undefined,
+      minify: 'esbuild',
 
       rollupOptions: {
         output: {

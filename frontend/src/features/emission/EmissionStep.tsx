@@ -98,10 +98,6 @@ function onlyLetters(v: string): string {
   return v.replace(/[^a-zA-ZáéíóúüñÁÉÍÓÚÜÑ\s]/g, '');
 }
 
-/** Solo dígitos */
-function onlyDigits(v: string): string {
-  return v.replace(/\D/g, '');
-}
 
 export function EmissionStep() {
   const {

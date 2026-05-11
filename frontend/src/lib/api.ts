@@ -8,7 +8,6 @@ const api = axios.create({ baseURL: '/api' });
 // (nunca en localStorage/cookie) y se adjunta a cada petición como header.
 
 let _sessionToken: string | null = null;
-let _sessionExpiresAt: number    = 0;
 let _initPromise: Promise<void> | null = null;
 
 /**
@@ -24,8 +23,7 @@ export async function initSession(): Promise<void> {
       const res = await axios.get<{ token: string; expiresIn: number }>(
         '/api/session/init',
       );
-      _sessionToken    = res.data.token;
-      _sessionExpiresAt = Date.now() + res.data.expiresIn;
+      _sessionToken = res.data.token;
       scheduleRefresh(res.data.expiresIn);
     } catch {
       // Si el backend tiene SESSION_ENABLED=false o falla, continúa sin token.
@@ -50,8 +48,7 @@ function scheduleRefresh(expiresInMs: number): void {
         null,
         { headers: { 'X-Session-Token': _sessionToken } },
       );
-      _sessionToken    = res.data.token;
-      _sessionExpiresAt = Date.now() + res.data.expiresIn;
+      _sessionToken = res.data.token;
       scheduleRefresh(res.data.expiresIn);
     } catch {
       // Si falla el refresh, la próxima petición recibirá 401 y
@@ -77,7 +74,6 @@ api.interceptors.response.use(
       (error.response.data as { code?: string } | null)?.code === 'INVALID_SESSION'
     ) {
       _sessionToken = null;
-      _sessionExpiresAt = 0;
       await initSession();
       // Reintentar la petición original con el token nuevo
       if (_sessionToken && error.config) {
