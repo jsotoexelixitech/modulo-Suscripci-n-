@@ -117,13 +117,14 @@ export function PaymentStep() {
     confirmInFlight.current = false;
   }, [paymentMethod]);
 
-  // Auto-rellenar el monto en Bs cuando llega la cotización real.
-  // Solo rellena si el campo está vacío para no pisar ediciones manuales.
+  // Sincroniza el monto en Bs con la cotización oficial cada vez que cambia.
+  // No es editable por el usuario: es el monto exacto a pagar (prima anual a tasa BCV).
+  // Esto evita que el cliente coloque un monto menor al cotizado.
   useEffect(() => {
     if (quoteState !== 'ready' || !quote) return;
     const vesStr = vesAnnual(quote).toFixed(2);
-    setMontoM((prev) => prev || vesStr);
-    setOtpAmount((prev) => prev || vesStr);
+    setMontoM(vesStr);
+    setOtpAmount(vesStr);
   }, [quoteState, quote]);
 
   // Countdown para reenvío de OTP
@@ -442,18 +443,30 @@ export function PaymentStep() {
                 />
               </Field>
 
-              {/* fila 3: monto (ancho completo) */}
+              {/* fila 3: monto (ancho completo) — bloqueado cuando hay cotización oficial */}
               <Field
-                label="Monto pagado (Bs)"
-                hint={hasRealQuote ? 'Calculado automáticamente · puedes editarlo si difiere' : 'Ingresa el monto en bolívares'}
+                label="Monto a pagar (Bs)"
+                hint={
+                  hasRealQuote
+                    ? 'Monto exacto según cotización oficial · no editable'
+                    : isLoadingQuote
+                    ? 'Calculando monto en bolívares desde la cotización...'
+                    : 'Esperando cotización para calcular el monto'
+                }
                 error={movErrors.monto}
                 full
               >
                 <Input
                   value={montoPagoM}
-                  onChange={(e) => { setMontoM(e.target.value.replace(/[^0-9.]/g, '')); setVerifyStatus('idle'); }}
+                  onChange={(e) => {
+                    if (hasRealQuote) return; // bloqueado si hay cotización oficial
+                    setMontoM(e.target.value.replace(/[^0-9.]/g, ''));
+                    setVerifyStatus('idle');
+                  }}
                   placeholder="198114.50"
                   inputMode="decimal"
+                  readOnly={hasRealQuote}
+                  className={hasRealQuote ? 'bg-slate-50 text-slate-700 font-bold cursor-not-allowed' : ''}
                 />
               </Field>
             </div>
@@ -621,18 +634,29 @@ export function PaymentStep() {
                     />
                   </Field>
 
-                  {/* fila 3: monto (ancho completo) */}
+                  {/* fila 3: monto (ancho completo) — bloqueado cuando hay cotización oficial */}
                   <Field
                     label="Monto a debitar (Bs)"
-                    hint={hasRealQuote ? 'Calculado automáticamente desde la cotización · puedes editarlo si es necesario' : 'Ingresa el monto en bolívares a debitar'}
+                    hint={
+                      hasRealQuote
+                        ? 'Monto exacto según cotización oficial · no editable'
+                        : isLoadingQuote
+                        ? 'Calculando monto en bolívares desde la cotización...'
+                        : 'Esperando cotización para calcular el monto'
+                    }
                     error={otpErrors.amount}
                     full
                   >
                     <Input
                       value={otpAmount}
-                      onChange={(e) => setOtpAmount(e.target.value.replace(/[^0-9.]/g, ''))}
+                      onChange={(e) => {
+                        if (hasRealQuote) return; // bloqueado si hay cotización oficial
+                        setOtpAmount(e.target.value.replace(/[^0-9.]/g, ''));
+                      }}
                       placeholder="198114.50"
                       inputMode="decimal"
+                      readOnly={hasRealQuote}
+                      className={hasRealQuote ? 'bg-slate-50 text-slate-700 font-bold cursor-not-allowed' : ''}
                     />
                   </Field>
                 </div>
