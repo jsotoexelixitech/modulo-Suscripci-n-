@@ -5,7 +5,7 @@ import { IdentityInput } from '../../components/ui/IdentityInput';
 import { ToggleSwitch } from '../../components/ui/ToggleSwitch';
 import { SearchSelect } from '../../components/ui/SearchSelect';
 import { useCatalogs, useCiudades } from '../../hooks/useCatalogs';
-import { User, UserPlus, Heart, Wallet } from 'lucide-react';
+import { User, UserPlus, Heart, Wallet, ShieldAlert } from 'lucide-react';
 
 export function SectionCard({
   title,
@@ -454,6 +454,25 @@ export function EmissionStep() {
               <Fragment key={key}>{tomadorFieldMap[key]}</Fragment>
             ))}
           </div>
+        </SectionCard>
+
+        {/* Persona Políticamente Expuesta — declaración legal requerida por La Mundial */}
+        <SectionCard
+          Icon={ShieldAlert}
+          title="Declaración legal"
+          description="Requerida por la Superintendencia de la Actividad Aseguradora (SUDEASEG)"
+        >
+          <div className="rounded-xl bg-amber-50 border border-amber-200 p-3.5 text-xs text-amber-800 leading-relaxed mb-4">
+            <strong>¿Qué es una Persona Políticamente Expuesta (PPE)?</strong> Es aquella que desempeña o ha desempeñado
+            funciones públicas prominentes (cargos de gobierno, altos funcionarios, directivos de empresas estatales,
+            diplomáticos, etc.) en Venezuela o en el extranjero, en los últimos 5 años.
+          </div>
+          <ToggleSwitch
+            checked={tomador.personaPoliticamenteExpuesta}
+            onChange={(v) => setTomador({ personaPoliticamenteExpuesta: v })}
+            label="Soy una Persona Políticamente Expuesta (PPE)"
+            description="Declaro que ejerzo o he ejercido funciones públicas prominentes en los últimos 5 años."
+          />
         </SectionCard>
 
         {/* Pagador */}

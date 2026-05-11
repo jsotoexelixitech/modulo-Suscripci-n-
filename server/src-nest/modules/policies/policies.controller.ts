@@ -333,7 +333,8 @@ export class PoliciesController {
   @ApiResponse({ status: 502, description: 'Error conectando con La Mundial.' })
   async getAnios() {
     try {
-      return await this.policiesService.getInmaAnios();
+      const result = await this.policiesService.getInmaAnios();
+      return { success: true, ...result };
     } catch (err: any) {
       throw new HttpException({ code: 'INMA_ERROR', message: err.message }, err.httpStatus ?? 502);
     }
@@ -363,7 +364,8 @@ export class PoliciesController {
   @ApiResponse({ status: 502, description: 'Error conectando con La Mundial.' })
   async getMarcas(@Query('fano') fano: string) {
     try {
-      return await this.policiesService.getInmaMarcas(parseInt(fano, 10));
+      const data = await this.policiesService.getInmaMarcas(parseInt(fano, 10));
+      return { success: true, data };
     } catch (err: any) {
       throw new HttpException({ code: 'INMA_ERROR', message: err.message }, err.httpStatus ?? 502);
     }
@@ -392,7 +394,8 @@ export class PoliciesController {
   @ApiResponse({ status: 502, description: 'Error conectando con La Mundial.' })
   async getModelos(@Query('fano') fano: string, @Query('cmarca') cmarca: string) {
     try {
-      return await this.policiesService.getInmaModelos(parseInt(fano, 10), cmarca);
+      const data = await this.policiesService.getInmaModelos(parseInt(fano, 10), cmarca);
+      return { success: true, data };
     } catch (err: any) {
       throw new HttpException({ code: 'INMA_ERROR', message: err.message }, err.httpStatus ?? 502);
     }
@@ -426,7 +429,8 @@ export class PoliciesController {
     @Query('cmodelo') cmodelo: string,
   ) {
     try {
-      return await this.policiesService.getInmaVersiones(parseInt(fano, 10), cmarca, cmodelo);
+      const data = await this.policiesService.getInmaVersiones(parseInt(fano, 10), cmarca, cmodelo);
+      return { success: true, data };
     } catch (err: any) {
       throw new HttpException({ code: 'INMA_ERROR', message: err.message }, err.httpStatus ?? 502);
     }
@@ -472,7 +476,8 @@ export class PoliciesController {
     @Query('cversion') cversion: string,
   ) {
     try {
-      return await this.policiesService.getCategoriasUso(parseInt(fano, 10), cmarca, cmodelo, cversion);
+      const data = await this.policiesService.getCategoriasUso(parseInt(fano, 10), cmarca, cmodelo, cversion);
+      return { success: true, data };
     } catch (err: any) {
       throw new HttpException({ code: 'INMA_ERROR', message: err.message }, err.httpStatus ?? 502);
     }

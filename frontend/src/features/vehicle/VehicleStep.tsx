@@ -605,8 +605,8 @@ export function VehicleStep() {
                   <span className="text-[0.6rem] text-emerald-600 font-bold bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full">✓</span>
                 )}
                 {!vehicle.cversion && (
-                  <span className="text-[0.6rem] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-full">
-                    elige versión
+                  <span className="text-[0.6rem] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">
+                    selecciona la versión primero
                   </span>
                 )}
               </span> as unknown as string
@@ -680,14 +680,42 @@ export function VehicleStep() {
             </div>
           </Field>
 
-          {/* Serial */}
-          <Field label="Serial del vehículo (VIN) *" error={errors.serial} hint="Entre 10 y 17 caracteres alfanuméricos del documento del vehículo">
+          {/* Serial de carrocería (VIN) */}
+          <Field label="Serial de carrocería (VIN) *" error={errors.serial} hint="Entre 10 y 17 caracteres alfanuméricos del documento del vehículo">
             <Input
               value={vehicle.serial}
               onChange={(e) => setVehicle({ serial: e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 17) })}
               placeholder="1HGBH41JXMN109186"
               className="font-mono uppercase tracking-wider"
               maxLength={17}
+            />
+          </Field>
+
+          {/* Serial del motor — opcional, String(60) en La Mundial */}
+          <Field label="Serial del motor" hint="Opcional · Máx. 60 caracteres · Aparece en el documento del vehículo">
+            <Input
+              value={vehicle.serialMotor ?? ''}
+              onChange={(e) => setVehicle({ serialMotor: e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 60) })}
+              placeholder="Ej. 4A123456789"
+              className="font-mono uppercase tracking-wider"
+              maxLength={60}
+            />
+          </Field>
+
+          {/* Peso del vehículo (ntoneladas) — opcional, default 60 en La Mundial */}
+          <Field
+            label="Peso del vehículo (toneladas)"
+            hint="Opcional · Por defecto: 60 · Requerido solo para carga y transporte pesado"
+          >
+            <Input
+              value={vehicle.ntoneladas != null ? String(vehicle.ntoneladas) : ''}
+              onChange={(e) => {
+                const v = e.target.value.replace(/\D/g, '').slice(0, 5);
+                setVehicle({ ntoneladas: v ? parseInt(v, 10) : undefined });
+              }}
+              placeholder="60"
+              inputMode="numeric"
+              maxLength={5}
             />
           </Field>
         </div>

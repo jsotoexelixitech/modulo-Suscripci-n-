@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useWizardStore } from '../../store/wizardStore';
 import { PLAN_CATALOG, CATEGORY_LABELS } from '../../lib/planCatalog';
 import {
@@ -37,7 +37,8 @@ export function PlansStep() {
     category, setCategory, selectedPlan, setSelectedPlan,
     vehicle, quote, quoteState,
   } = useWizardStore();
-  const [billing, setBilling] = useState<'monthly' | 'annual'>('monthly');
+  // RCV es siempre anual — no existe pago mensual en este producto.
+  const billing = 'annual' as const;
   const plans = category ? PLAN_CATALOG[category] ?? [] : [];
 
   // ── Auto-preseleccion al entrar al step 4 ────────────────────────────────
@@ -149,26 +150,11 @@ export function PlansStep() {
         <p className="text-slate-500 text-sm leading-relaxed max-w-md">
           Selecciona la categoría y el plan que mejor se ajuste a tu vehículo.
         </p>
-
-        {/* Billing toggle */}
-        <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-slate-100 border border-slate-200">
-          {(['monthly', 'annual'] as const).map((b) => (
-            <button
-              key={b}
-              type="button"
-              onClick={() => setBilling(b)}
-              className={`
-                relative px-4 py-1.5 rounded-lg text-xs font-bold transition-all
-                ${billing === b
-                  ? 'bg-white text-indigo-600 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700'
-                }
-              `}
-            >
-              {b === 'monthly' ? 'Mensual' : 'Anual'}
-            </button>
-          ))}
-        </div>
+        {/* RCV es pago anual único — se muestra como badge informativo */}
+        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 border border-indigo-200 text-xs font-bold text-indigo-700">
+          <Shield size={11} />
+          Pago anual
+        </span>
       </div>
 
       {/* Combo selectors row */}

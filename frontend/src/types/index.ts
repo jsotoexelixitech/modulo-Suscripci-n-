@@ -57,6 +57,12 @@ export type TomadorData = {
   cestado?: number;
   /** Código numérico La Mundial de la ciudad (cciudad). Se obtiene del selector de catálogo. */
   cciudad?: number;
+  /**
+   * Declaración legal: Persona Políticamente Expuesta (PPE).
+   * Se envía a La Mundial como dec_persona_politica: 1 (Sí) | 0 (No).
+   * Campo NOT NULL en la API — por eso se inicializa en false (0).
+   */
+  personaPoliticamenteExpuesta: boolean;
 };
 
 export type PersonData = {
@@ -107,6 +113,16 @@ export interface VehicleData {
   ccategoria_uso?: number | string;
   /** Etiqueta legible de la categoría de uso (ej. "Auto particular") — para display */
   xcategoria_uso?: string;
+  /**
+   * Serial del motor. Nullable en La Mundial (String 60).
+   * Se mapea a serial_motor en el payload de emisión.
+   */
+  serialMotor?: string;
+  /**
+   * Peso del vehículo en toneladas. Nullable en La Mundial, default 60.
+   * Se mapea a ntoneladas en el payload de cotización y emisión.
+   */
+  ntoneladas?: number;
 }
 
 export interface PolicyQuote {

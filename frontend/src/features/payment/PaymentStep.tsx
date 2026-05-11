@@ -117,6 +117,15 @@ export function PaymentStep() {
     confirmInFlight.current = false;
   }, [paymentMethod]);
 
+  // Auto-rellenar el monto en Bs cuando llega la cotización real.
+  // Solo rellena si el campo está vacío para no pisar ediciones manuales.
+  useEffect(() => {
+    if (quoteState !== 'ready' || !quote) return;
+    const vesStr = vesAnnual(quote).toFixed(2);
+    setMontoM((prev) => prev || vesStr);
+    setOtpAmount((prev) => prev || vesStr);
+  }, [quoteState, quote]);
+
   // Countdown para reenvío de OTP
   useEffect(() => {
     if (otpCooldown <= 0) return;
@@ -320,8 +329,8 @@ export function PaymentStep() {
             <span className="text-xs text-slate-500 font-semibold pb-1">/ año</span>
           </div>
           {hasRealQuote && annualVes > 0 && (
-            <p className="text-[0.65rem] font-bold text-indigo-700/80 mt-1 tabular-nums">
-              ≈ Bs {annualVes.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <p className="text-sm font-display font-black text-indigo-700 mt-1 tabular-nums">
+              Bs {annualVes.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
           )}
           {hasRealQuote && quote?.ptasa && quote.ptasa > 0 && (
@@ -434,7 +443,12 @@ export function PaymentStep() {
               </Field>
 
               {/* fila 3: monto (ancho completo) */}
-              <Field label="Monto pagado (Bs)" error={movErrors.monto} full>
+              <Field
+                label="Monto pagado (Bs)"
+                hint={hasRealQuote ? 'Calculado automáticamente · puedes editarlo si difiere' : 'Ingresa el monto en bolívares'}
+                error={movErrors.monto}
+                full
+              >
                 <Input
                   value={montoPagoM}
                   onChange={(e) => { setMontoM(e.target.value.replace(/[^0-9.]/g, '')); setVerifyStatus('idle'); }}
@@ -608,8 +622,12 @@ export function PaymentStep() {
                   </Field>
 
                   {/* fila 3: monto (ancho completo) */}
-                  <Field label="Monto a debitar (Bs)" hint="Debe coincidir con la prima"
-                    error={otpErrors.amount} full>
+                  <Field
+                    label="Monto a debitar (Bs)"
+                    hint={hasRealQuote ? 'Calculado automáticamente desde la cotización · puedes editarlo si es necesario' : 'Ingresa el monto en bolívares a debitar'}
+                    error={otpErrors.amount}
+                    full
+                  >
                     <Input
                       value={otpAmount}
                       onChange={(e) => setOtpAmount(e.target.value.replace(/[^0-9.]/g, ''))}

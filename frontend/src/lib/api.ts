@@ -480,21 +480,22 @@ export interface ResolverResult {
 
 export const catalogoApi = {
   anios: () =>
-    api.get<{ success: boolean; min: number; max: number }>('/catalogo/anios'),
+    api.get<{ success: boolean; min: number; max: number }>('/policies/inma/anios'),
   marcas: (fano: number) =>
-    api.get<{ success: boolean; data: InmaMarca[] }>(`/catalogo/marcas?fano=${fano}`),
+    api.get<{ success: boolean; data: InmaMarca[] }>(`/policies/inma/marcas?fano=${fano}`),
   modelos: (fano: number, cmarca: string) =>
-    api.get<{ success: boolean; data: InmaModelo[] }>(`/catalogo/modelos?fano=${fano}&cmarca=${cmarca}`),
+    api.get<{ success: boolean; data: InmaModelo[] }>(`/policies/inma/modelos?fano=${fano}&cmarca=${cmarca}`),
   versiones: (fano: number, cmarca: string, cmodelo: string) =>
-    api.get<{ success: boolean; data: InmaVersion[] }>(`/catalogo/versiones?fano=${fano}&cmarca=${cmarca}&cmodelo=${cmodelo}`),
+    api.get<{ success: boolean; data: InmaVersion[] }>(`/policies/inma/versiones?fano=${fano}&cmarca=${cmarca}&cmodelo=${cmodelo}`),
   /** Categorías de uso aplicables a la versión (depende de la versión seleccionada). */
   categoriasUso: (fano: number, cmarca: string, cmodelo: string, cversion: string) =>
     api.get<{ success: boolean; data: CategoriaUso[] }>(
-      `/catalogo/categorias-uso?fano=${fano}&cmarca=${cmarca}&cmodelo=${cmodelo}&cversion=${cversion}`,
+      `/policies/inma/categorias-uso?fano=${fano}&cmarca=${cmarca}&cmodelo=${cmodelo}&cversion=${cversion}`,
     ),
-  /** Resuelve texto libre (de OCR) → cmarca + cmodelo + versiones en una sola llamada */
+  /** Resuelve texto libre (de OCR) → cmarca + cmodelo + versiones en una sola llamada.
+   *  Ruta no implementada aún en NestJS — se puede agregar si se necesita. */
   resolver: (fano: number, marca: string, modelo: string) =>
-    api.get<ResolverResult>(`/catalogo/resolver?fano=${fano}&marca=${encodeURIComponent(marca)}&modelo=${encodeURIComponent(modelo)}`),
+    api.get<ResolverResult>(`/policies/inma/resolver?fano=${fano}&marca=${encodeURIComponent(marca)}&modelo=${encodeURIComponent(modelo)}`),
 };
 
 // ──────────────────────────────────────────────────────────────────────

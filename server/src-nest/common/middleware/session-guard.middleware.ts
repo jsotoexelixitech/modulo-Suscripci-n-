@@ -7,7 +7,10 @@ export class SessionGuardMiddleware implements NestMiddleware {
   constructor(private readonly sessionService: SessionService) {}
 
   use(req: Request, res: Response, next: NextFunction) {
-    if (process.env.SESSION_ENABLED === 'false') {
+    // En development la sesión se ignora (igual que en el Express original).
+    // En producción se respeta SESSION_ENABLED.
+    const isDev = (process.env.NODE_ENV ?? 'development') === 'development';
+    if (isDev || process.env.SESSION_ENABLED === 'false') {
       return next();
     }
 

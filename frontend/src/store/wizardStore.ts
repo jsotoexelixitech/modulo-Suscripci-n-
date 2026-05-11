@@ -29,6 +29,7 @@ const defaultTomador = (): TomadorData => ({
   estado: '',
   ciudad: '',
   direccion: '',
+  personaPoliticamenteExpuesta: false,
 });
 
 const defaultPerson = (): PersonData => ({
@@ -53,6 +54,8 @@ const defaultVehicle = (): VehicleData => ({
   color: '',
   serial: '',
   uso: 'Particular',
+  serialMotor: '',
+  ntoneladas: undefined,
 });
 
 interface WizardActions {
