@@ -16,21 +16,12 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig(({ mode }) => {
   const env    = loadEnv(mode, process.cwd(), '')
   const tunnel = env.VITE_HMR_TUNNEL === '1' || env.VITE_HMR_TUNNEL === 'true'
-  const isProd = mode === 'production'
 
   return {
     plugins: [
       react(),
       tailwindcss(),
     ],
-
-    // ── Minificación ──────────────────────────────────────────────────────
-    ...(isProd && {
-      esbuild: {
-        drop: ['console', 'debugger'] as ('console' | 'debugger')[],
-        legalComments: 'none' as const,
-      },
-    }),
 
     build: {
       minify: 'esbuild',
