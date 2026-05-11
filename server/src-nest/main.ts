@@ -57,9 +57,12 @@ async function bootstrap() {
   });
 
   // ── Validación global ───────────────────────────────────────────────────────
+  // whitelist:false — los wizardState dinámicos (vehicle, tomador, OCR, etc.)
+  // tienen propiedades que no están decoradas con class-validator. Con whitelist:true
+  // el pipe las eliminaba silenciosamente y rompía la cotización.
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true,
+      whitelist: false,
       transform: true,
       forbidNonWhitelisted: false,
     }),
