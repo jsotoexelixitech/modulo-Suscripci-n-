@@ -31,22 +31,24 @@ async function bootstrap() {
   );
 
   // ── CORS ────────────────────────────────────────────────────────────────────
-  // Sin CORS_ORIGINS (dev sin restricción) → permite todo.
-  // Con CORS_ORIGINS (producción) → solo dominios explícitos.
+  // Modo permisivo si:
+  //   - NODE_ENV=development, O
+  //   - CORS_ALLOW_NO_ORIGIN=true, O
+  //   - CORS_ORIGINS está vacío
+  // En ese caso permite TODO (incluido el tunnel de Cloudflare con dominio dinamico).
+  // En producción estricta (CORS_ORIGINS lleno y CORS_ALLOW_NO_ORIGIN=false) → solo la lista.
+  const permissive =
+    NODE_ENV !== 'production' || allowNoOrigin || !rawOrigins;
+
   app.enableCors({
-    origin: (origin, callback) => {
-      // Sin origin header (Postman, curl, server-to-server)
-      if (!origin) {
-        return allowNoOrigin || !rawOrigins
-          ? callback(null, true)
-          : callback(new Error('Origen no permitido'), false);
-      }
-      // Dev sin lista → permitir todo
-      if (!rawOrigins) return callback(null, true);
-      // Producción → solo lista
-      if (allowedOrigins.includes(origin)) return callback(null, true);
-      return callback(new Error(`CORS bloqueado: ${origin}`), false);
-    },
+    origin: permissive
+      ? true
+      : (origin, callback) => {
+          if (!origin) return callback(null, true);
+          if (allowedOrigins.includes(origin)) return callback(null, true);
+          // No tirar excepción 500 — sólo negar el header CORS.
+          return callback(null, false);
+        },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'X-Session-Token'],
