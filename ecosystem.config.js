@@ -2,12 +2,19 @@
  * PM2 ecosystem - Suscripcion RCV (La Mundial de Seguros)
  *
  * Lanza:
- *   - rcv-api : backend Express en cluster
- *   - rcv-web : servidor estatico del build de Vite (opcional)
+ *   - rcv-api : backend NestJS (dist-nest/main.js compilado)
+ *   - rcv-web : servidor Vite preview (build de produccion)
  *
- * Uso:
+ * Primer despliegue:
+ *   cd server && npm install && npm run build:nest && cd ..
+ *   cd frontend && npm install && npm run build && cd ..
  *   pm2 start ecosystem.config.js --env production
- *   pm2 reload ecosystem.config.js
+ *
+ * Actualizar despues de un git pull:
+ *   cd server && npm install && npm run build:nest && cd ..
+ *   pm2 reload ecosystem.config.js --env production
+ *
+ * Detener todo:
  *   pm2 stop all && pm2 delete all
  */
 
@@ -15,18 +22,16 @@ const path = require('path');
 
 const PORT = parseInt(process.env.PORT, 10) || 3001;
 const PUBLIC_WEB_PORT = parseInt(process.env.PUBLIC_WEB_PORT, 10) || 4173;
-// 'max' colapsa servidores con pocos recursos — se limita a 2 instancias por defecto.
-// Para escalar: PM2_INSTANCES=4 pm2 start ecosystem.config.js
-const PM2_INSTANCES = process.env.PM2_INSTANCES || 2;
+const PM2_INSTANCES = process.env.PM2_INSTANCES || 1;
 
 module.exports = {
   apps: [
     {
       name: 'rcv-api',
       cwd: path.join(__dirname, 'server'),
-      script: 'src/index.js',
+      script: 'dist-nest/main.js',
       instances: PM2_INSTANCES,
-      exec_mode: 'cluster',
+      exec_mode: 'fork',
       watch: false,
       max_memory_restart: '512M',
       env: {
@@ -37,8 +42,8 @@ module.exports = {
         NODE_ENV: 'production',
         PORT: PORT,
       },
-      out_file: path.join(__dirname, 'logs', 'rcv-api.out.log'),
-      error_file: path.join(__dirname, 'logs', 'rcv-api.err.log'),
+      out_file: path.join(__dirname, 'logs', 'api.out.log'),
+      error_file: path.join(__dirname, 'logs', 'api.err.log'),
       merge_logs: true,
       time: true,
     },
