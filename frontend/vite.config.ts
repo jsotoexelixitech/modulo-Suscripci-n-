@@ -24,7 +24,7 @@ export default defineConfig(({ mode }) => {
     ],
 
     build: {
-      minify: 'esbuild',
+      minify: true,
 
       rollupOptions: {
         output: {
