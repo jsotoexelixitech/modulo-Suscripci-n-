@@ -71,14 +71,15 @@ export function IdentityInput({
         />
       </div>
 
-      {/* Numero de identificacion */}
+      {/* Numero de identificacion: solo digitos, maximo 9 */}
       <input
         id={inputId}
         type="text"
         inputMode="numeric"
         value={identificacion}
-        onChange={(e) => onIdentificacionChange(e.target.value)}
+        onChange={(e) => onIdentificacionChange(e.target.value.replace(/\D/g, '').slice(0, 9))}
         placeholder={placeholder}
+        maxLength={9}
         className={
           'flex-1 min-w-0 px-3.5 py-2.5 bg-white text-sm text-slate-900 outline-none ' +
           'placeholder:text-slate-300'

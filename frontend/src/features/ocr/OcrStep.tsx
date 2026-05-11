@@ -566,6 +566,7 @@ export function OcrStep() {
     setLoadingDemo(true);
     try {
       const order: DocType[] = ['cedula', 'licencia', 'certificado', 'rif'];
+      // Sequential on purpose: each demo plays its upload animation before the next starts.
       for (const t of order) {
         await loadDemoOne(t);
         await new Promise((r) => setTimeout(r, 200));

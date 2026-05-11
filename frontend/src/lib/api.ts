@@ -1,7 +1,93 @@
-import axios, { AxiosError } from 'axios';
+import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import type { DocType, OcrResult, DocumentFile } from '../types';
 
 const api = axios.create({ baseURL: '/api' });
+
+// ── Gestión de token de sesión ────────────────────────────────────────────────
+// El token se obtiene del backend al iniciar la app, se guarda sólo en memoria
+// (nunca en localStorage/cookie) y se adjunta a cada petición como header.
+
+let _sessionToken: string | null = null;
+let _sessionExpiresAt: number    = 0;
+let _initPromise: Promise<void> | null = null;
+
+/**
+ * Inicializa la sesión contra el backend.
+ * Se llama automáticamente al arrancar la app (ver main.tsx).
+ * Llama de nuevo si el token expira antes del refresh automático.
+ */
+export async function initSession(): Promise<void> {
+  if (_initPromise) return _initPromise;
+
+  _initPromise = (async () => {
+    try {
+      const res = await axios.get<{ token: string; expiresIn: number }>(
+        '/api/session/init',
+      );
+      _sessionToken    = res.data.token;
+      _sessionExpiresAt = Date.now() + res.data.expiresIn;
+      scheduleRefresh(res.data.expiresIn);
+    } catch {
+      // Si el backend tiene SESSION_ENABLED=false o falla, continúa sin token.
+      // Los endpoints lo ignorarán si la validación está desactivada.
+      _sessionToken = null;
+    } finally {
+      _initPromise = null;
+    }
+  })();
+
+  return _initPromise;
+}
+
+/** Renueva el token 5 minutos antes de que expire */
+function scheduleRefresh(expiresInMs: number): void {
+  const refreshIn = Math.max(expiresInMs - 5 * 60 * 1000, 10_000);
+  setTimeout(async () => {
+    try {
+      if (!_sessionToken) return;
+      const res = await axios.post<{ token: string; expiresIn: number }>(
+        '/api/session/refresh',
+        null,
+        { headers: { 'X-Session-Token': _sessionToken } },
+      );
+      _sessionToken    = res.data.token;
+      _sessionExpiresAt = Date.now() + res.data.expiresIn;
+      scheduleRefresh(res.data.expiresIn);
+    } catch {
+      // Si falla el refresh, la próxima petición recibirá 401 y
+      // el interceptor de respuesta re-inicializará la sesión.
+    }
+  }, refreshIn);
+}
+
+// Interceptor de REQUEST — adjunta el token a cada llamada
+api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  if (_sessionToken) {
+    config.headers['X-Session-Token'] = _sessionToken;
+  }
+  return config;
+});
+
+// Interceptor de RESPONSE — re-inicia sesión automáticamente en 401
+api.interceptors.response.use(
+  (r) => r,
+  async (error: AxiosError) => {
+    if (
+      error.response?.status === 401 &&
+      (error.response.data as { code?: string } | null)?.code === 'INVALID_SESSION'
+    ) {
+      _sessionToken = null;
+      _sessionExpiresAt = 0;
+      await initSession();
+      // Reintentar la petición original con el token nuevo
+      if (_sessionToken && error.config) {
+        (error.config as InternalAxiosRequestConfig).headers['X-Session-Token'] = _sessionToken;
+        return axios.request(error.config);
+      }
+    }
+    return Promise.reject(error);
+  },
+);
 
 export interface UploadResponse {
   success: boolean;
@@ -322,13 +408,6 @@ export interface SypagoOtpConfirmResponse {
   mock?            : boolean;
 }
 
-export interface SypagoTransactionStatus {
-  success        : boolean;
-  transaction_id : string;
-  status         : string;
-  mock?          : boolean;
-  [key: string]  : unknown;
-}
 
 export class SypagoError extends Error {
   code       : string;
@@ -380,15 +459,6 @@ export async function sypagoConfirmOtp(
   }
 }
 
-/** Consulta el estado de una transacción por ID */
-export async function sypagoGetStatus(transactionId: string): Promise<SypagoTransactionStatus> {
-  try {
-    const res = await api.get<SypagoTransactionStatus>(`/payments/otp/status/${transactionId}`);
-    return res.data;
-  } catch (err) {
-    _throwSypago(err);
-  }
-}
 
 // ── Catálogo INMA ──────────────────────────────────────────────────────────
 

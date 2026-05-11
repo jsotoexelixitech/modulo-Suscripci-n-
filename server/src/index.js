@@ -8,33 +8,55 @@ const express = require('express');
 const cors    = require('cors');
 const path    = require('path');
 
-const uploadRoutes = require('./routes/upload');
-const valrepRoutes = require('./routes/valrep');
+const uploadRoutes  = require('./routes/upload');
+const valrepRoutes  = require('./routes/valrep');
+const sessionRoutes = require('./routes/session');
+
+const {
+  buildCorsOptions,
+  securityHeaders,
+  requireSession,
+  generalLimiter,
+  ocrLimiter,
+  emitLimiter,
+  quoteLimiter,
+  paymentsLimiter,
+  otpConfirmLimiter,
+} = require('./middleware/security');
 
 const app      = express();
 const PORT     = parseInt(process.env.PORT, 10) || 3001;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
-// ── CORS ──────────────────────────────────────────────────────────────────────
-// En producción el frontend es servido por este mismo proceso, así que CORS
-// solo necesita cubrir dominios externos. En dev cubrimos los puertos de Vite.
-const defaultOrigins = [
-  'http://localhost:5173',
-  'http://localhost:5174',
-  'http://localhost:5175',
-];
-const corsOrigins = (process.env.CORS_ORIGINS || defaultOrigins.join(','))
-  .split(',')
-  .map((o) => o.trim())
-  .filter(Boolean);
+// ── Headers de seguridad HTTP ─────────────────────────────────────────────────
+app.use(securityHeaders);
 
-app.use(cors({ origin: corsOrigins }));
+// ── CORS estricto ─────────────────────────────────────────────────────────────
+app.use(cors(buildCorsOptions()));
+
+// ── Body parser ───────────────────────────────────────────────────────────────
 app.use(express.json({ limit: process.env.JSON_BODY_LIMIT || '1mb' }));
+
+// ── Rate limiting general (catálogos, valrep, etc.) ───────────────────────────
+app.use('/api', generalLimiter);
 
 // ── Archivos subidos (temporales) ─────────────────────────────────────────────
 app.use('/files', express.static(path.join(__dirname, '../uploads')));
 
+// ── Validación de sesión (aplica a todas las rutas /api excepto /session e /health) ──
+app.use('/api', requireSession);
+
 // ── API ───────────────────────────────────────────────────────────────────────
+app.use('/api/session', sessionRoutes);
+
+// Rate limiters específicos por endpoint costoso
+app.use('/api/documents/upload',      ocrLimiter);
+app.use('/api/policies/emit',         emitLimiter);
+app.use('/api/policies/quote',        quoteLimiter);
+app.use('/api/payments',              paymentsLimiter);
+// Rate limit específico para confirmación OTP — capa adicional anti-doble-débito
+app.use('/api/payments/otp/confirm',  otpConfirmLimiter);
+
 app.use('/api', uploadRoutes);
 app.use('/api/valrep', valrepRoutes);
 
@@ -58,10 +80,12 @@ if (NODE_ENV === 'production') {
 
 // ── Arranque ──────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
+  const sessionStatus = process.env.SESSION_ENABLED === 'false' ? 'DESACTIVADO' : 'ACTIVO';
   const lines = [
     '',
     `  RCV Server [${NODE_ENV}]`,
     `  API:      http://localhost:${PORT}/api/health`,
+    `  Sesión:   ${sessionStatus}  (SESSION_ENABLED en .env para cambiar)`,
   ];
   if (NODE_ENV === 'production') {
     lines.push(`  Frontend: http://localhost:${PORT}`);

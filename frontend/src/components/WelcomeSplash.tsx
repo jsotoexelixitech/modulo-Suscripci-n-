@@ -180,14 +180,14 @@ export function WelcomeSplash() {
           className="mt-6 flex items-center gap-1.5"
           style={{ animation: 'splashTextIn 0.6s ease-out 1.2s both' }}
         >
-          {[BRAND.navy, BRAND.blueMid, BRAND.red].map((c, i) => (
+          {([BRAND.navy, BRAND.blueMid, BRAND.red] as const).map((c, idx) => (
             <span
-              key={i}
+              key={c}
               className="w-1.5 h-1.5 rounded-full"
               style={{
                 background: c,
                 animation: 'pulse-soft 1.2s ease-in-out infinite',
-                animationDelay: `${i * 0.15}s`,
+                animationDelay: `${idx * 0.15}s`,
               }}
             />
           ))}

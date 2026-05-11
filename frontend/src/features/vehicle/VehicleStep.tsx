@@ -38,8 +38,12 @@ function findBestMatch<T>(
 
 interface VehicleErrors {
   placa?: string;
+  año?: string;
   marca?: string;
   modelo?: string;
+  uso?: string;
+  color?: string;
+  serial?: string;
   cond_nombre?: string;
   cond_apellido?: string;
   cond_licencia?: string;
@@ -236,14 +240,70 @@ export function VehicleStep() {
   // ── Validación ────────────────────────────────────────────────────────────
   const validate = () => {
     const e: VehicleErrors = {};
-    if (!vehicle.placa.trim())  e.placa  = 'La placa es obligatoria';
-    if (!vehicle.marca.trim())  e.marca  = 'La marca es obligatoria';
-    if (!vehicle.modelo.trim()) e.modelo = 'El modelo es obligatorio';
+    const req  = (v?: string) => !(v ?? '').trim();
+    const len  = (v?: string) => (v ?? '').trim().length;
+    const digs = (v?: string) => (v ?? '').replace(/\D/g, '').length;
 
+    // Placa: requerida, mínimo 6 caracteres alfanuméricos
+    if (req(vehicle.placa)) {
+      e.placa = 'La placa es obligatoria';
+    } else if (len(vehicle.placa) < 6) {
+      e.placa = 'La placa debe tener al menos 6 caracteres';
+    }
+
+    // Año: requerido (selector)
+    if (req(vehicle.año)) e.año = 'Selecciona el año del vehículo';
+
+    // Marca y modelo: requeridos (de lista)
+    if (req(vehicle.marca))  e.marca  = 'La marca es obligatoria';
+    if (req(vehicle.modelo)) e.modelo = 'El modelo es obligatorio';
+
+    // Uso/categoría: requerido
+    if (!vehicle.ccategoria_uso && req(vehicle.uso)) e.uso = 'Selecciona el uso del vehículo';
+
+    // Color: requerido, 2-15 caracteres, solo letras
+    if (req(vehicle.color)) {
+      e.color = 'El color es obligatorio';
+    } else if (len(vehicle.color) < 2) {
+      e.color = 'El color debe tener al menos 2 caracteres';
+    } else if (len(vehicle.color) > 15) {
+      e.color = 'El color no puede superar 15 caracteres';
+    }
+
+    // Serial: requerido, mínimo 10 caracteres alfanuméricos
+    if (req(vehicle.serial)) {
+      e.serial = 'El serial del vehículo es obligatorio';
+    } else if (len(vehicle.serial) < 10) {
+      e.serial = 'El serial debe tener al menos 10 caracteres';
+    }
+
+    // Conductor habitual (condicional)
     if (hasDriver) {
-      if (!(conductor.nombre ?? '').trim())   e.cond_nombre   = 'El nombre del conductor es obligatorio';
-      if (!(conductor.apellido ?? '').trim()) e.cond_apellido = 'El apellido del conductor es obligatorio';
-      if (!(conductor.licencia ?? '').trim()) e.cond_licencia = 'El número de licencia es obligatorio';
+      const nombre   = (conductor.nombre   ?? '').trim();
+      const apellido = (conductor.apellido ?? '').trim();
+      const licencia = (conductor.licencia ?? '').trim();
+
+      if (!nombre) {
+        e.cond_nombre = 'El nombre del conductor es obligatorio';
+      } else if (nombre.length < 5) {
+        e.cond_nombre = 'El nombre debe tener al menos 5 caracteres';
+      } else if (nombre.length > 50) {
+        e.cond_nombre = 'El nombre no puede superar 50 caracteres';
+      }
+
+      if (!apellido) {
+        e.cond_apellido = 'El apellido del conductor es obligatorio';
+      } else if (apellido.length < 5) {
+        e.cond_apellido = 'El apellido debe tener al menos 5 caracteres';
+      } else if (apellido.length > 50) {
+        e.cond_apellido = 'El apellido no puede superar 50 caracteres';
+      }
+
+      if (!licencia) {
+        e.cond_licencia = 'El número de licencia es obligatorio';
+      } else if (digs(licencia) !== 12) {
+        e.cond_licencia = 'La licencia debe tener exactamente 12 dígitos';
+      }
     }
 
     setErrors(e);
@@ -378,7 +438,7 @@ export function VehicleStep() {
           </Field>
 
           {/* Año — selector del catálogo INMA */}
-          <Field label="Año del vehículo">
+          <Field label="Año del vehículo *" error={errors.año}>
             {anios.length > 0 ? (
               <Select
                 value={vehicle.año}
@@ -536,9 +596,10 @@ export function VehicleStep() {
 
           {/* Uso — categorías dinámicas según la versión seleccionada */}
           <Field
+            error={errors.uso}
             label={
               <span className="flex items-center gap-1.5">
-                ¿Para qué usas el vehículo?
+                ¿Para qué usas el vehículo? *
                 {loadCu && <Loader2 size={11} className="animate-spin text-indigo-400" />}
                 {vehicle.ccategoria_uso != null && vehicle.ccategoria_uso !== '' && !loadCu && (
                   <span className="text-[0.6rem] text-emerald-600 font-bold bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full">✓</span>
@@ -602,12 +663,13 @@ export function VehicleStep() {
           )}
 
           {/* Color */}
-          <Field label="Color">
+          <Field label="Color *" error={errors.color}>
             <div className="relative">
               <Input
                 value={vehicle.color}
-                onChange={(e) => setVehicle({ color: e.target.value })}
+                onChange={(e) => setVehicle({ color: e.target.value.replace(/[^a-zA-ZáéíóúüñÁÉÍÓÚÜÑ\s]/g, '').slice(0, 15) })}
                 placeholder="Plateado"
+                maxLength={15}
                 style={{ paddingLeft: '2.25rem' }}
               />
               <span
@@ -619,10 +681,10 @@ export function VehicleStep() {
           </Field>
 
           {/* Serial */}
-          <Field label="Serial del vehículo (VIN)" hint="Son los 17 caracteres que aparecen en el documento del vehículo">
+          <Field label="Serial del vehículo (VIN) *" error={errors.serial} hint="Entre 10 y 17 caracteres alfanuméricos del documento del vehículo">
             <Input
               value={vehicle.serial}
-              onChange={(e) => setVehicle({ serial: e.target.value.toUpperCase() })}
+              onChange={(e) => setVehicle({ serial: e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 17) })}
               placeholder="1HGBH41JXMN109186"
               className="font-mono uppercase tracking-wider"
               maxLength={17}
@@ -665,27 +727,35 @@ export function VehicleStep() {
             <Field label="Nombre del conductor *" error={errors.cond_nombre}>
               <Input
                 value={conductor.nombre}
-                onChange={(e) => setConductor({ nombre: e.target.value.replace(/[^a-zA-ZáéíóúüñÁÉÍÓÚÜÑ\s]/g, '') })}
+                onChange={(e) => setConductor({ nombre: e.target.value.replace(/[^a-zA-ZáéíóúüñÁÉÍÓÚÜÑ\s]/g, '').slice(0, 50) })}
                 placeholder="Nombre"
+                maxLength={50}
               />
             </Field>
             <Field label="Apellido del conductor *" error={errors.cond_apellido}>
               <Input
                 value={conductor.apellido}
-                onChange={(e) => setConductor({ apellido: e.target.value.replace(/[^a-zA-ZáéíóúüñÁÉÍÓÚÜÑ\s]/g, '') })}
+                onChange={(e) => setConductor({ apellido: e.target.value.replace(/[^a-zA-ZáéíóúüñÁÉÍÓÚÜÑ\s]/g, '').slice(0, 50) })}
                 placeholder="Apellido"
+                maxLength={50}
               />
             </Field>
-            <Field label="Número de licencia de conducir *" error={errors.cond_licencia}>
+            <Field label="Número de licencia de conducir *" error={errors.cond_licencia} hint="Exactamente 12 dígitos">
               <Input
                 value={conductor.licencia ?? ''}
-                onChange={(e) => setConductor({ licencia: e.target.value.toUpperCase() })}
-                placeholder="Ej. LIC-0234567"
-                className="uppercase font-mono tracking-wider"
+                onChange={(e) => setConductor({ licencia: e.target.value.replace(/\D/g, '').slice(0, 12) })}
+                placeholder="012345678901"
+                className="font-mono tracking-wider"
+                inputMode="numeric"
+                maxLength={12}
               />
             </Field>
             <Field label="¿Qué relación tiene contigo?">
-              <Input value={conductor.relacion ?? ''} onChange={(e) => setConductor({ relacion: e.target.value })} placeholder="Ej. hijo, esposa, empleado..." />
+              <Input
+                value={conductor.relacion ?? ''}
+                onChange={(e) => setConductor({ relacion: e.target.value.replace(/[^a-zA-ZáéíóúüñÁÉÍÓÚÜÑ\s]/g, '') })}
+                placeholder="Ej. hijo, esposa, empleado..."
+              />
             </Field>
           </div>
         )}

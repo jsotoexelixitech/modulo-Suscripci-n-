@@ -2,10 +2,44 @@ const express = require('express');
 const fs = require('fs/promises');
 const multer = require('multer');
 const path = require('path');
+const crypto = require('crypto');
 const { v4: uuidv4 } = require('uuid');
 const sharp = require('sharp');
 const { verifyMobilePayment } = require('../services/meritop/meritopClient');
 const sypagoClient = require('../services/sypago/sypagoClient');
+
+// ── Idempotency store para /otp/confirm ────────────────────────────────────
+// Previene débitos duplicados cuando el usuario presiona "Confirmar" varias
+// veces o hay reintentos de red. Clave = SHA-256 de los campos únicos de la
+// transacción (incluye el OTP, que es de un solo uso).
+// TTL: 120 s (el OTP ya habrá expirado en el banco mucho antes).
+const OTP_IDEM_TTL_MS = 120_000;
+const _otpIdemStore   = new Map(); // key -> { expiresAt, response }
+
+function _otpIdemKey({ documentType, documentNumber, debtorBankCode, debtorPhone, amount, otp }) {
+  return crypto
+    .createHash('sha256')
+    .update(`${documentType}|${documentNumber}|${debtorBankCode}|${debtorPhone}|${amount}|${otp}`)
+    .digest('hex');
+}
+
+function _otpIdemGet(key) {
+  const entry = _otpIdemStore.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) { _otpIdemStore.delete(key); return null; }
+  return entry.response;
+}
+
+function _otpIdemSet(key, response) {
+  _otpIdemStore.set(key, { expiresAt: Date.now() + OTP_IDEM_TTL_MS, response });
+  // Limpieza lazy: purga entradas expiradas cuando el mapa supera 200 entradas
+  if (_otpIdemStore.size > 200) {
+    const now = Date.now();
+    for (const [k, v] of _otpIdemStore) {
+      if (now > v.expiresAt) _otpIdemStore.delete(k);
+    }
+  }
+}
 
 /**
  * Convierte HEIC/HEIF o cualquier imagen grande a JPEG ≤2048px.
@@ -635,24 +669,44 @@ router.post('/payments/otp/confirm', async (req, res) => {
     });
   }
 
+  const parsedOtp    = String(otp).trim();
+  const parsedPhone  = String(debtorPhone).replace(/\s/g, '');
+  const parsedDoc    = String(documentNumber).trim();
+  const parsedAmount = parseFloat(amount);
+  const parsedName   = String(debtorName).trim();
+
+  // ── Idempotency check — rechaza duplicados dentro de la ventana de 120 s ──
+  const idemKey    = _otpIdemKey({ documentType, documentNumber: parsedDoc, debtorBankCode, debtorPhone: parsedPhone, amount: parsedAmount, otp: parsedOtp });
+  const cachedResp = _otpIdemGet(idemKey);
+  if (cachedResp) {
+    console.warn(`[SyPago] Solicitud duplicada ignorada (idempotency hit). key=${idemKey.slice(0, 12)}...`);
+    return res.status(200).json({ ...cachedResp, duplicate: true });
+  }
+
   try {
     const result = await sypagoClient.confirmOtp({
       documentType,
-      documentNumber: String(documentNumber).trim(),
+      documentNumber: parsedDoc,
       debtorBankCode,
-      debtorPhone   : String(debtorPhone).replace(/\s/g, ''),
-      debtorName    : String(debtorName).trim(),
-      amount        : parseFloat(amount),
-      otp           : String(otp).trim(),
+      debtorPhone   : parsedPhone,
+      debtorName    : parsedName,
+      amount        : parsedAmount,
+      otp           : parsedOtp,
       concept,
     });
-    return res.status(200).json({
+
+    const responseBody = {
       success          : true,
       message          : 'Transacción iniciada.',
       transaction_id   : result.transaction_id,
       operation_secret : result.operation_secret,
       mock             : result.mock || false,
-    });
+    };
+
+    // Guardar en store para detectar duplicados posteriores
+    _otpIdemSet(idemKey, responseBody);
+
+    return res.status(200).json(responseBody);
   } catch (err) {
     return _sendSypagoError(res, err, 'otp/confirm');
   }

@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   X, ExternalLink, Download, FileText, ImageIcon, FileWarning,
@@ -23,11 +23,16 @@ function getFileKind(mime: string): 'image' | 'pdf' | 'other' {
 export function DocumentPreviewModal({ open, file, title, subtitle, onClose }: Props) {
   const [zoom, setZoom] = useState(1);
 
+  // Keep a ref to always call the latest onClose without re-subscribing the
+  // keyboard listener on every parent render (avoids double-close edge cases).
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
     if (!open) return;
 
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') onCloseRef.current();
       if (e.key === '+' || e.key === '=') setZoom((z) => Math.min(z + 0.2, 3));
       if (e.key === '-') setZoom((z) => Math.max(z - 0.2, 0.5));
       if (e.key === '0') setZoom(1);
@@ -41,7 +46,7 @@ export function DocumentPreviewModal({ open, file, title, subtitle, onClose }: P
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = prevOverflow;
     };
-  }, [open, onClose]);
+  }, [open]);
 
   useEffect(() => {
     if (open) setZoom(1);

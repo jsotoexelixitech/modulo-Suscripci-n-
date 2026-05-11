@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useWizardStore } from '../../store/wizardStore';
 import { Field, Input } from '../../components/ui/FormField';
 import { BankSearchSelect } from '../../components/ui/BankSearchSelect';
@@ -64,6 +64,8 @@ const PAYMENT_OPTIONS: {
 type VerifyStatus = 'idle' | 'loading' | 'success' | 'failed' | 'error';
 type OtpStep = 'form' | 'requesting' | 'awaiting_otp' | 'confirming' | 'done' | 'error';
 
+const TODAY_ISO = new Date().toISOString().split('T')[0];
+
 export function PaymentStep() {
   const { paymentMethod, setPaymentMethod, selectedPlan, quote, quoteState } = useWizardStore();
 
@@ -96,6 +98,11 @@ export function PaymentStep() {
   const [otpSubmitted, setOtpSubmitted] = useState(false);
   const [otpCooldown,  setOtpCooldown]  = useState(0); // segundos restantes para reenvío
 
+  // Latch síncrono para evitar doble-click en "Confirmar pago".
+  // useRef garantiza que el bloqueo ocurre ANTES del siguiente render,
+  // a diferencia de setState que necesita un ciclo para propagarse.
+  const confirmInFlight = useRef(false);
+
   // Resetear estados al cambiar método de pago
   useEffect(() => {
     setVerifyStatus('idle');
@@ -107,6 +114,7 @@ export function PaymentStep() {
     setOtpCode('');
     setOtpSubmitted(false);
     setOtpCooldown(0);
+    confirmInFlight.current = false;
   }, [paymentMethod]);
 
   // Countdown para reenvío de OTP
@@ -229,6 +237,11 @@ export function PaymentStep() {
 
   async function handleOtpConfirm() {
     if (!otpCode.trim()) return;
+
+    // Bloqueo síncrono — impide que dos clicks simultáneos pasen al mismo tiempo
+    if (confirmInFlight.current) return;
+    confirmInFlight.current = true;
+
     setOtpStep('confirming');
     setOtpError('');
     try {
@@ -244,9 +257,12 @@ export function PaymentStep() {
       });
       setOtpResult(result);
       setOtpStep('done');
+      // Latch queda activo en 'done' — no se puede volver a confirmar
     } catch (err) {
       setOtpError(err instanceof SypagoError ? err.message : 'Error al confirmar pago.');
       setOtpStep('error');
+      // Liberar latch solo en error para permitir reintentar
+      confirmInFlight.current = false;
     }
   }
 
@@ -405,7 +421,7 @@ export function PaymentStep() {
                   type="date"
                   value={fechaPagoM}
                   onChange={(e) => { setFechaM(e.target.value); setVerifyStatus('idle'); }}
-                  max={new Date().toISOString().split('T')[0]}
+                  max={TODAY_ISO}
                 />
               </Field>
 
@@ -698,7 +714,7 @@ export function PaymentStep() {
                   </button>
                   <button
                     type="button"
-                    disabled={otpCode.length < 6 || otpStep === 'confirming'}
+                    disabled={otpCode.length < 6 || otpStep === 'confirming' || confirmInFlight.current}
                     onClick={handleOtpConfirm}
                     className="flex-1 flex items-center justify-center gap-2 py-3 px-5 rounded-xl font-bold text-sm bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-[0_8px_20px_rgba(16,185,129,0.35)] hover:-translate-y-0.5 active:translate-y-0 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
                   >
