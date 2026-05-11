@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# deploy.sh — Actualizar y reiniciar RCV en el servidor de produccion
+# deploy.sh — Actualizar y reiniciar RCV en el servidor
 # Uso: bash deploy.sh
 set -e
 
@@ -14,21 +14,17 @@ npm install
 npm run build:nest
 cd ..
 
-echo "==> [3/4] Instalando dependencias del frontend y compilando..."
+echo "==> [3/4] Instalando dependencias del frontend..."
 cd frontend
 npm install
-npm run build
 cd ..
 
 echo "==> [4/4] Reiniciando procesos PM2..."
-# Si los procesos ya existen, hacemos reload; si no, los levantamos desde cero.
-if pm2 list | grep -q "rcv-api"; then
-  pm2 reload ecosystem.config.js --env production --update-env
-else
-  pm2 start ecosystem.config.js --env production
-  pm2 save
-fi
+# Eliminar y recrear para que los cambios de script/args se apliquen
+pm2 delete rcv-api rcv-web 2>/dev/null || true
+pm2 start ecosystem.config.js
+pm2 save
 
 echo ""
-echo "✓ Deploy completado."
+echo "Deploy completado."
 pm2 status

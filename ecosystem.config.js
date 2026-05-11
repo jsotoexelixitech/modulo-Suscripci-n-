@@ -2,17 +2,12 @@
  * PM2 ecosystem - Suscripcion RCV (La Mundial de Seguros)
  *
  * Lanza:
- *   - rcv-api : backend NestJS (dist-nest/main.js compilado)
- *   - rcv-web : servidor Vite preview (build de produccion)
+ *   - rcv-api : backend NestJS compilado (server/dist-nest/main.js)
+ *   - rcv-web : Vite dev server en puerto 5180, con proxy /api → :3001
+ *               (el tunnel de Cloudflare apunta a este puerto)
  *
- * Primer despliegue:
- *   cd server && npm install && npm run build:nest && cd ..
- *   cd frontend && npm install && npm run build && cd ..
- *   pm2 start ecosystem.config.js --env production
- *
- * Actualizar despues de un git pull:
- *   cd server && npm install && npm run build:nest && cd ..
- *   pm2 reload ecosystem.config.js --env production
+ * Primer despliegue (o después de cambiar ecosystem):
+ *   bash deploy.sh
  *
  * Detener todo:
  *   pm2 stop all && pm2 delete all
@@ -20,12 +15,13 @@
 
 const path = require('path');
 
-const PORT = parseInt(process.env.PORT, 10) || 3001;
-const PUBLIC_WEB_PORT = parseInt(process.env.PUBLIC_WEB_PORT, 10) || 4173;
-const PM2_INSTANCES = process.env.PM2_INSTANCES || 1;
+const PORT            = parseInt(process.env.PORT, 10)            || 3001;
+const PUBLIC_WEB_PORT = parseInt(process.env.PUBLIC_WEB_PORT, 10) || 5180;
+const PM2_INSTANCES   = process.env.PM2_INSTANCES                 || 1;
 
 module.exports = {
   apps: [
+    // ── Backend NestJS ────────────────────────────────────────────────────
     {
       name: 'rcv-api',
       cwd: path.join(__dirname, 'server'),
@@ -38,29 +34,28 @@ module.exports = {
         NODE_ENV: 'production',
         PORT: PORT,
       },
-      env_production: {
-        NODE_ENV: 'production',
-        PORT: PORT,
-      },
       out_file: path.join(__dirname, 'logs', 'api.out.log'),
       error_file: path.join(__dirname, 'logs', 'api.err.log'),
       merge_logs: true,
       time: true,
     },
+
+    // ── Frontend Vite dev (con proxy API → :3001) ─────────────────────────
     {
       name: 'rcv-web',
       cwd: path.join(__dirname, 'frontend'),
       script: 'node_modules/vite/bin/vite.js',
-      args: `preview --host --port ${PUBLIC_WEB_PORT} --strictPort`,
+      args: `--host --port ${PUBLIC_WEB_PORT} --strictPort`,
       instances: 1,
       exec_mode: 'fork',
       watch: false,
       max_memory_restart: '256M',
       env: {
-        NODE_ENV: 'production',
+        NODE_ENV: 'development',
+        VITE_HMR_TUNNEL: '1',
       },
-      out_file: path.join(__dirname, 'logs', 'rcv-web.out.log'),
-      error_file: path.join(__dirname, 'logs', 'rcv-web.err.log'),
+      out_file: path.join(__dirname, 'logs', 'web.out.log'),
+      error_file: path.join(__dirname, 'logs', 'web.err.log'),
       merge_logs: true,
       time: true,
     },
