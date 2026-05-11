@@ -52,7 +52,10 @@ module.exports = {
       max_memory_restart: '256M',
       env: {
         NODE_ENV: 'development',
-        VITE_HMR_TUNNEL: '1',
+        // En el servidor desactivamos HMR — no se necesita hot-reload
+        // en producción y evita errores de WebSocket cuando se accede
+        // por IP/tunnel sin HTTPS.
+        VITE_HMR_DISABLE: '1',
       },
       out_file: path.join(__dirname, 'logs', 'web.out.log'),
       error_file: path.join(__dirname, 'logs', 'web.err.log'),

@@ -15,7 +15,8 @@ import tailwindcss from '@tailwindcss/vite'
  */
 export default defineConfig(({ mode }) => {
   const env    = loadEnv(mode, process.cwd(), '')
-  const tunnel = env.VITE_HMR_TUNNEL === '1' || env.VITE_HMR_TUNNEL === 'true'
+  const tunnel  = env.VITE_HMR_TUNNEL  === '1' || env.VITE_HMR_TUNNEL  === 'true'
+  const hmrOff  = env.VITE_HMR_DISABLE === '1' || env.VITE_HMR_DISABLE === 'true'
 
   return {
     plugins: [
@@ -49,9 +50,11 @@ export default defineConfig(({ mode }) => {
       host: true,
       port: 5180,
       allowedHosts: true,
-      hmr: tunnel
-        ? { clientPort: 443, protocol: 'wss' }
-        : true,
+      hmr: hmrOff
+        ? false
+        : tunnel
+          ? { clientPort: 443, protocol: 'wss' }
+          : true,
       proxy: {
         '/api': {
           target: 'http://localhost:3001',
