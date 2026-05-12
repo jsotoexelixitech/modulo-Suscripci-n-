@@ -5,10 +5,12 @@ import {
   UseInterceptors,
   Body,
   BadRequestException,
+  HttpException,
   HttpCode,
   Logger,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import * as fs from 'fs/promises';
 import {
   ApiTags,
   ApiOperation,
@@ -182,7 +184,23 @@ export class OcrController {
           cb(null, unique);
         },
       }),
-      limits: { fileSize: 10 * 1024 * 1024 },
+      fileFilter: (_req, file, cb) => {
+        const allowed = [
+          'image/jpeg',
+          'image/jpg',
+          'image/png',
+          'image/webp',
+          'image/heic',
+          'image/heif',
+          'application/pdf',
+        ];
+        if (allowed.includes(file.mimetype)) {
+          cb(null, true);
+        } else {
+          cb(new Error(`Tipo de archivo no permitido: ${file.mimetype}. Usa JPG, PNG, HEIC o PDF.`), false);
+        }
+      },
+      limits: { fileSize: 25 * 1024 * 1024 }, // 25 MB (iPhone HEIC originales)
     }),
   )
   @ApiOperation({
@@ -298,14 +316,45 @@ export class OcrController {
 
     const result = await this.ocrService.processDocument(file, docType);
 
+    // Si Gemini detectó que el documento subido NO corresponde al slot,
+    // borramos el archivo y devolvemos 422 con detalle accionable (igual que Express viejo).
+    if (result.mismatch) {
+      await fs.unlink(result.finalPath).catch(() => {});
+      throw new HttpException(
+        {
+          success: false,
+          code: 'DOC_TYPE_MISMATCH',
+          message: result.mismatch.message,
+          expected: result.mismatch.expected,
+          detected: result.mismatch.detected,
+          expectedLabel: result.mismatch.expectedLabel,
+          detectedLabel: result.mismatch.detectedLabel,
+          ocrProvider: result.provider,
+          ...(result.meta ? { ocrMeta: result.meta } : {}),
+        },
+        422,
+      );
+    }
+
+    // Estructura compatible con el frontend (idéntica al Express viejo)
     return {
       success: true,
-      provider: result.provider,
-      fields: result.fields ?? {},
-      ...(result.meta && { meta: result.meta }),
-      ...(result.mismatch && { mismatch: result.mismatch }),
-      ...(result.ocrFailed && { ocrFailed: true }),
-      ...(result.error && { error: result.error }),
+      message: result.ocrFailed
+        ? 'Archivo recibido. No pudimos leer los datos automáticamente.'
+        : 'Documento procesado exitosamente.',
+      docType,
+      file: {
+        id: uuidv4(),
+        name: file.originalname,
+        size: file.size,
+        mimeType: result.finalMimetype,
+        url: `/files/${result.finalFilename}`,
+      },
+      ocr: result.fields ?? {},
+      ocrProvider: result.provider,
+      ...(result.ocrFailed ? { ocrFailed: true } : {}),
+      ...(result.meta ? { ocrMeta: result.meta } : {}),
+      ...(result.error ? { ocrError: result.error } : {}),
     };
   }
 }

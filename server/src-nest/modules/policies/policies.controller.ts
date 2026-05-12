@@ -482,4 +482,69 @@ export class PoliciesController {
       throw new HttpException({ code: 'INMA_ERROR', message: err.message }, err.httpStatus ?? 502);
     }
   }
+
+  @Get('inma/resolver')
+  @ApiOperation({
+    summary: 'Resolver texto libre (OCR) contra el catálogo INMA',
+    description: [
+      'Recibe `marca` y opcionalmente `modelo` como texto libre (ej. resultado de OCR del certificado',
+      'de circulación) y los resuelve contra el catálogo oficial de La Mundial.',
+      '',
+      'Devuelve `{ cmarca, xmarca, cmodelo?, xmodelo?, versiones[], fallback }`.',
+      'Si `fallback: true`, la coincidencia fue parcial — el usuario debe confirmar manualmente.',
+    ].join('\n'),
+  })
+  @ApiQuery({ name: 'fano', required: true, type: Number, example: 2022 })
+  @ApiQuery({ name: 'marca', required: true, type: String, example: 'Toyota' })
+  @ApiQuery({ name: 'modelo', required: false, type: String, example: 'Corolla' })
+  @ApiOkResponse({
+    description: 'Resultado de la resolución (puede incluir `fallback: true`).',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        fallback: { type: 'boolean', example: false },
+        cmarca: { type: 'string', example: '10' },
+        xmarca: { type: 'string', example: 'TOYOTA' },
+        cmodelo: { type: 'string', example: '27' },
+        xmodelo: { type: 'string', example: 'COROLLA' },
+        versiones: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              cversion: { type: 'string', example: '1' },
+              xversion: { type: 'string', example: 'SEDAN 1.8L' },
+            },
+          },
+        },
+        message: { type: 'string', nullable: true },
+      },
+    },
+  })
+  @ApiBadRequestResponse({ description: '`fano` o `marca` faltantes.' })
+  @ApiUnauthorizedResponse({ schema: INVALID_SESSION })
+  @ApiResponse({ status: 502, description: 'Error conectando con La Mundial.' })
+  async resolveInma(
+    @Query('fano') fano: string,
+    @Query('marca') marca: string,
+    @Query('modelo') modelo?: string,
+  ) {
+    const fanoNum = parseInt(fano, 10);
+    if (!fanoNum || !marca) {
+      throw new HttpException(
+        { success: false, message: 'fano y marca requeridos' },
+        400,
+      );
+    }
+    try {
+      const data = await this.policiesService.resolveVehicle(fanoNum, marca, modelo ?? '');
+      return data;
+    } catch (err: any) {
+      throw new HttpException(
+        { success: false, code: 'INMA_ERROR', message: err.message },
+        err.httpStatus ?? 502,
+      );
+    }
+  }
 }
